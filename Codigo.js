@@ -120,6 +120,7 @@ function finalizarTarea() {
   try {
 
     let hj_tareas = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Tareas');
+    validarEstructuraHoja('Tareas', CONFIG_MODELO.TAREAS);
 
     /* Obtenemos la fila donde se encuentra ubicada la tarea que se desea finalizar y la columna donde se debe incluir la fecha fin, la última de las columnas, y posicionaos en la fecha fin la celda activa 
     */
@@ -127,6 +128,11 @@ function finalizarTarea() {
     let filaTarea = rngTarea.getRow();
     let columnasTarea = hj_tareas.getLastColumn();
     let filasTareas = hj_tareas.getLastRow();
+
+    // Validación de fila activa antes de escribir
+    if (filaTarea < 2 || filaTarea > filasTareas) {
+      throw new Error("VALIDACION: fila activa fuera del rango de tareas (seleccione una fila de tarea)");
+    }
 
     /* Comprobamos que la tarea no esta finaliza y se encuentra en el rango de tareas en cuyo caso procedemos a actualizar la fecha fin
     */
@@ -253,6 +259,7 @@ function reorganizarTareas() {
   try {
 
     let hjActiva = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Tareas');
+    validarEstructuraHoja('Tareas', CONFIG_MODELO.TAREAS);
 
     let ultimaFila = hjActiva.getLastRow();
     let ultimaColumna = hjActiva.getLastColumn();
@@ -314,6 +321,7 @@ function moverFinalizadas() {
 
     /* Obtenemos las tareas finalizadas de la hoja 'Tareas'
     */
+    validarAntesMoverFinalizadas();
     let hjTareas = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Tareas');
     let numfilas = hjTareas.getLastRow();
     let numcolumnas = hjTareas.getLastColumn();

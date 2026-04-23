@@ -60,6 +60,14 @@
   - EVIDENCIA: `Código.js` → `finalizarTarea()` → `throw new Error("Fila seleccionada no contiene tarea")` y bloque `catch`.
 - **EVIDENCIA**: `Código.js` → `finalizarTarea()` → escribe fecha fin y estado y llama `reubicarTareaFinalizada(...)` + `reorganizarTareas()`.
 
+### Invariantes tras ejecución
+
+- La tarea queda con estado `'hecho'`.
+- Se asigna fecha fin real en la última columna.
+- La tarea queda ubicada dentro del bloque de finalizadas tras reorganización.
+
+EVIDENCIA: `Código.js` → `finalizarTarea()` → `setValue('hecho')` + `reubicarTareaFinalizada(...)`
+
 ### Contrato: `reorganizarTareas()`
 
 - **Capa**: Dominio/Datos (servidor GAS)
@@ -116,6 +124,14 @@
   - Riesgo: `catch (err) { throw new Error(error.message); }` referencia `error` no definido.
   - EVIDENCIA: `Código.js` → `moverFinalizadas()` → uso `getTime()` y bloque `catch`.
 - **EVIDENCIA**: `Código.js` → `moverFinalizadas()` → unión `mapHch/mapIn` y `deleteRows(...)`.
+
+### Invariantes tras ejecución
+
+- Todas las tareas con estado 'hecho' dejan de existir en `Tareas`.
+- Todas las tareas finalizadas quedan en `Hecho` sin duplicados (según clave compuesta).
+- El orden en `Hecho` queda descendente según la clave generada.
+
+EVIDENCIA: `Código.js` → `moverFinalizadas()` → uso de `Map` + `deleteRows(...)`
 
 ### Contrato: `estadisticasV2()`
 
@@ -223,7 +239,23 @@ flowchart TD
 
 ### Flujo 3 — Reactivar Tarea (`opcion=3`)
 
-**Objetivo**: “deshacer” la finalización: limpiar estado/fecha fin real y, si se reactiva desde `Hecho`, mover la fila a `Tareas`.
+**Objetivo**: “deshacer” la finalización en la hoja de trabajo, limpiando estado y fecha fin real de la tarea seleccionada.
+
+### ⚠️ Limitación actual (lógica inalcanzable)
+
+- La función fija la hoja a `Tareas` mediante `getSheetByName('Tareas')`.
+- Por tanto, el bloque `if (nbHjActiva === 'Hecho')` es inalcanzable.
+- La reactivación desde `Hecho` NO es posible en el estado actual del sistema.
+
+EVIDENCIA: `Código.js` → `reactivarTarea()` → uso de `getSheetByName('Tareas')`
+
+### Implicación operativa
+
+- Las tareas en `Hecho` no pueden reactivarse mediante la UI actual.
+- La reactivación solo es posible sobre tareas en `Tareas`.
+- Si se requiere reactivar desde `Hecho`, debe realizarse manualmente o considerarse como mejora futura.
+
+EVIDENCIA: `Código.js` → `reactivarTarea()` → uso de `getSheetByName('Tareas')`
 
 **Paso a paso técnico**:
 1) UI llama `gestorOpciones(3)` → `reactivarTarea()`.
@@ -232,9 +264,7 @@ flowchart TD
    - EVIDENCIA: `Código.js` → `reactivarTarea()` → `getSheetByName('Tareas')` + `getActiveCell().getRow()/getColumn()`.
 3) Limpia columna 5 (estado) y 7 (fecha fin real).
    - EVIDENCIA: `Código.js` → `reactivarTarea()` → `getRange(filaSelecc, 5).setValue("")` y `getRange(filaSelecc, 7).setValue("")`.
-4) Si hoja activa es `Hecho`, copia valores (hasta `ultColumHjActiva - 1`) a última fila de `Tareas` y borra la fila en `Hecho`.
-   - EVIDENCIA: `Código.js` → `reactivarTarea()` → `if (nbHjActiva === 'Hecho') ... setValues(vlModif) ... deleteRow(filaSelecc)`.
-5) Llama `reorganizarTareas()`.
+4) Llama `reorganizarTareas()`.
    - EVIDENCIA: `Código.js` → `reactivarTarea()` → `reorganizarTareas();`.
 
 **Riesgos**:
@@ -246,15 +276,10 @@ sequenceDiagram
   participant UI as index.html
   participant GAS as Código.js
   participant T as Sheet:Tareas
-  participant H as Sheet:Hecho
   UI->>GAS: gestorOpciones(3)
   GAS->>GAS: reactivarTarea()
+  Note over GAS: branch 'Hecho' inalcanzable
   GAS->>T: set col5="" y col7=""
-  alt reactivación desde Hecho
-    GAS->>H: read row values
-    GAS->>T: append row values
-    GAS->>H: deleteRow(filaSelecc)
-  end
   GAS->>GAS: reorganizarTareas()
 ```
 
@@ -302,15 +327,33 @@ sequenceDiagram
 **Objetivo**: ejecutar `moverFinalizadas()` (ver contrato arriba).
 - EVIDENCIA: `Código.js` → `gestorOpciones(opcion)` → `case 6: moverFinalizadas();`.
 
+### ⚠️ Caso límite: no hay tareas finalizadas
+
+- Si no existe ninguna tarea con estado 'hecho', `filaInicalTareaMov` puede quedar en 0
+- La llamada a `deleteRows(0, ...)` puede provocar un error en runtime (índice inválido) o comportamiento inesperado
+
+EVIDENCIA: `Código.js` → `moverFinalizadas()` → uso de `filaInicalTareaMov` en `deleteRows`
+
+### ⚠️ Riesgo de tipos de fecha
+
+- La función utiliza `.getTime()` sobre valores de fecha.
+- Si los datos no son objetos `Date` (por ejemplo, strings), se producirá error.
+- Este error se manifestará como excepción en runtime al ejecutar `.getTime()`.
+
+EVIDENCIA: `Código.js` → `moverFinalizadas()` → uso de `getTime()`
+
 ```mermaid
 flowchart TD
   A["UI: gestorOpciones(6)"] --> B["moverFinalizadas()"]
-  B --> C["Lee Tareas (getValues)"]
-  C --> D["Filtra estado 'hecho'"]
-  D --> E["Lee Hecho (getValues)"]
-  E --> F["Une por clave fechaFin|tarea|fechaAlta"]
-  F --> G["Ordena desc y setValues en Hecho"]
-  G --> H["deleteRows en Tareas desde primera finalizada"]
+  B --> C{"¿Hay tareas 'hecho'?"}
+  C -- no --> X["Riesgo: deleteRows(0, ...) → error en runtime"]
+  C -- sí --> D["Procesar normalmente"]
+  D --> E["Lee Tareas (getValues)"]
+  E --> F["Filtra estado 'hecho'"]
+  F --> G["Lee Hecho (getValues)"]
+  G --> I["Une por clave fechaFin|tarea|fechaAlta"]
+  I --> J["Ordena desc y setValues en Hecho"]
+  J --> H["deleteRows en Tareas desde primera finalizada"]
 ```
 
 ## Flujo batch — Trigger de estadísticas
@@ -343,6 +386,15 @@ sequenceDiagram
 ```
 
 **Errores**:
-- El email siempre se envía (salvo fallo en `MailApp`) con asunto de éxito/error.
-  - EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → bloque `try/catch` y `MailApp.sendEmail(...)`.
+- El envío de email depende de que el flujo alcance el bloque de envío.
+- Si ocurre un error previo no controlado, puede no enviarse notificación.
+
+### ⚠️ Riesgo: fallo en MailApp
+
+- Aunque el cálculo de estadísticas sea correcto, el envío de email puede fallar por:
+  - límites de cuota
+  - falta de permisos
+- En ese caso, el proceso se ejecuta correctamente pero no hay notificación.
+
+EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `MailApp.sendEmail(...)`
 

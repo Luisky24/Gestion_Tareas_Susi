@@ -20,12 +20,28 @@ Cuando se usa `getValues()` o `getDisplayValues()`, cada fila es un array **0-ba
   - EVIDENCIA: `Código.js` → `moverFinalizadas()` → `rngTareas.getValues()` y luego usa `elemenIn[6].getTime()` (requiere `Date`).
   - EVIDENCIA: `f_estadisticasV2.js` → `obtenerDatosHoja()` → `return rango.getDisplayValues();` (strings).
 
+### C) “Columnas relativas” (referencias por posición, no por número fijo)
+
+El repo usa referencias a columnas basadas en:
+
+- **Última columna**: `getLastColumn()` y `num_columnas - 1` (índice 0-based), que en el modelo mínimo de 7 columnas corresponde a **columna 7 (G)**.
+  - EVIDENCIA: `Código.js` → `finalizarTarea()` → `columnasTarea = hj_tareas.getLastColumn(); getRange(filaTarea, columnasTarea)` (escritura fecha fin real).
+  - EVIDENCIA: `f_secundarias.js` → `ordenarTareas(tblTareas,num_columnas)` → `let fechaA = a[num_columnas - 1];` (usa “última columna” como fecha de ordenación secundaria).
+
+- **Estado como “numcolumnas - 3”** (índice 0-based): en `moverFinalizadas` se evalúa `elemento[numcolumnas - 3]` para detectar `'hecho'`. Con 7 columnas, \(7-3=4\) ⇒ índice 4 ⇒ **columna 5 (E)**.
+  - EVIDENCIA: `Código.js` → `moverFinalizadas()` → `if (elemento[numcolumnas - 3] == 'hecho') ...`.
+
+Impacto:
+- Si la hoja `Tareas` tiene más columnas que el mínimo, estas referencias siguen siendo válidas solo si el **estado** sigue estando en la 5ª columna y la **fecha fin real** sigue en la **última**.
+- SUPOSICIÓN: la plantilla de la hoja mantiene `Estado` en E y `Fecha fin real` al final.
+  - Verificación: revisar la cabecera (fila 1) y confirmar posición de `Estado` y `Fecha fin real`.
+
 ## Hojas y responsabilidades
 
 | Hoja | Rol | Productor(es) | Consumidor(es) |
 |---|---|---|---|
 | `Tareas` | Backlog operativo (tareas abiertas y finalizadas antes de mover) | `nuevaTarea`, `finalizarTarea`, `reactivarTarea`, `borrarTarea`, `reorganizarTareas`, `moverFinalizadas` | `reorganizarTareas`, `moverFinalizadas`, `estadisticasV2`, `calculoEstadisticas` |
-| `Hecho` | Histórico de tareas finalizadas movidas desde `Tareas` | `moverFinalizadas`, `reactivarTarea` (si reactivas desde `Hecho`) | `estadisticasV2`, `calculoEstadisticas` |
+| `Hecho` | Histórico de tareas finalizadas movidas desde `Tareas` | `moverFinalizadas` | `estadisticasV2`, `calculoEstadisticas` |
 | `Estadisticas` | Agregado semanal (Nuevas/Abiertas/Cerradas) | `estadisticasV2` | humano/visualización |
 | `Resumen Semanal` | Resumen semanal alternativo (hechas/no hechas) | `calculoEstadisticas` | humano/visualización |
 | `Errores_Estadisticas` | Log de errores de `estadisticasV2` | `registrarError` | diagnóstico |

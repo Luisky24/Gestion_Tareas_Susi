@@ -1,5 +1,12 @@
 # Arquitectura — Gestión_Tareas_Susi (Google Apps Script)
 
+## PLAN DE CORRECCIÓN (OBLIGATORIO)
+
+- Ajustar `docs/FLOWS.md` y `docs/DATA_MODEL.md` para que `reactivarTarea` **no se documente como flujo desde `Hecho`**.
+- Añadir en `docs/DATA_MODEL.md` una sección explícita de **columnas relativas** (p.ej. “última columna”, `numcolumnas - 3`) con mapeo a columnas concretas y evidencia.
+- Corregir `docs/TROUBLESHOOTING.md` para incluir el caso operativo faltante relacionado con `moverFinalizadas` cuando no hay tareas en estado `'hecho'`.
+- Ejecutar verificación de coherencia cruzada entre `docs/ARCHITECTURE.md`, `docs/DATA_MODEL.md` y `docs/FLOWS.md` manteniendo estructura y sin eliminar contenido válido.
+
 ## Alcance y artefactos del repo
 
 Este proyecto es un Google Apps Script asociado a una hoja de cálculo (Spreadsheet) y con UI de barra lateral (HTML) que invoca funciones del servidor (Apps Script) para gestionar tareas y ejecutar estadísticas.
