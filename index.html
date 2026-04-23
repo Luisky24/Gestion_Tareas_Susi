@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+  <base target="_top">
+  <title>Menú Gestión Tareas</title>
+  <style>
+    /* Estilos en línea para organizar los botones en columna */
+    body {
+      background-color: #333;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: start;
+      min-height: 100vh;
+      margin: 20px;
+    }
+
+    #opciones {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      /* Espaciado entre botones */
+      width: 200px;
+      /* Ancho uniforme */
+    }
+
+    button {
+      padding: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      background-color: #555;
+      color: white;
+    }
+
+    button:hover {
+      background-color: #777;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="opciones">
+    <button id="altaTarea" onclick="startAction(1)">Nueva Tarea</button>
+    <button id="finalizarTarea" onclick="startAction(2)">Finalizar Tarea</button>
+    <button id="reactivarTarea" onclick="startAction(3)">Reactivar Tarea</button>
+    <button id="borrarTarea" onclick="startAction(4)">Borrar Tarea</button>
+    <button id="reorganizarTareas" onclick="startAction(5)">Reorganiza Tareas</button>
+    <button id="moverFinalizados" onclick="startAction(6)">Mover Finalizados</button>
+    <div id="status" style="margin-up: 20px; margin-bottom: 10px; color: white;">Estado: Listo</div>
+  </div>
+
+
+  <script>
+    
+    function startAction(opcion) {
+      let nbOpcion = "";
+      try {
+    
+      switch (opcion) {
+        case 1: nbOpcion = 'Nueva Tarea';
+                break;
+        case 2: nbOpcion = 'Finalizar Tarea';;
+                break;
+        case 3: nbOpcion = 'Reactivar Tarea';;
+                break;
+        case 4: nbOpcion = 'Borrar Tarea';;
+                break;
+        case 5: nbOpcion = 'Reorganizar Tareas';;
+                break;
+        case 6: nbOpcion = 'Traspasar Tareas Finalizadas';;
+                break;
+        default:
+          throw new Error("Opción seleccionada no existe");
+
+      }
+
+  } catch(err) {
+    throw new Error(err.message);
+  }
+      let inicio = `Inicio proceso... ${nbOpcion}`;
+      updateStatus(inicio);
+      console.log("start ");
+      desactivarBotones();
+      // Llamada al servidor con un manejador de éxito
+      google.script.run
+        .withSuccessHandler((error) => updateStatus(`Proceso completado.`))
+        .withFailureHandler((error) => updateStatus(`Error: ${error.message}`))
+        .gestorOpciones(opcion);
+    }
+
+    function updateStatus(message) {
+      activarBotones();
+      const defaultStatus = "<< Puede seleccionar otra opción >>";
+      const statusElement = document.getElementById('status');
+      statusElement.innerText = `Estado: ${message}`;
+
+      // Restaurar el estado inicial después de 10 segundos (10,000 ms)
+      clearTimeout(statusElement.timeout); // Cancelar cualquier temporizador previo
+      statusElement.timeout = setTimeout(() => {
+        statusElement.innerText = defaultStatus;
+      }, 10000); // 10,000 ms = 10 segundos
+    }
+
+    function desactivarBotones() {
+      const buttons = document.querySelectorAll("#opciones button");
+      buttons.forEach(button => (button.disabled = true)); // Desactiva todos los botones
+    }
+
+    function activarBotones() {
+      const buttons = document.querySelectorAll("#opciones button");
+      buttons.forEach(button => (button.disabled = false));
+    }
+
+  </script>
+</body>
+
+</html>
