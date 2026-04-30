@@ -1,3 +1,10 @@
+function log(...args) {
+  console.log('[APP]', ...args);
+}
+
+function error(...args) {
+  console.error('[APP ERROR]', ...args);
+}
 
 function onOpen() {
   let hj_actual = repo_obtenerHoja('Tareas');
@@ -6,7 +13,7 @@ function onOpen() {
   }
 
   //let hj_Actual = SpreadsheetApp.getActiveSheet();
-  console.log("Nombre Hoja: " + hj_actual.getName());
+  log("Nombre Hoja: " + hj_actual.getName());
 
   // Poner color pijama y despues color vencidas
   //pijama(hj_actual);
@@ -21,17 +28,62 @@ function onOpen() {
 function mostrarBarraLateral() {
   var barra = ui_renderHtml('index').setTitle('Menú Gestión Tareas');
   ui_mostrarSidebar(barra);
-  console.log("");
+  log("");
+}
+
+function abrirPanelTriggers() {
+  const html = HtmlService.createTemplateFromFile('panelTriggers')
+    .evaluate()
+    .setWidth(900)
+    .setHeight(650);
+
+  SpreadsheetApp.getUi().showModalDialog(html, 'Gestión de Triggers');
+}
+
+/**
+ * Cambia el contenido del sidebar cargando un archivo HTML del proyecto.
+ * Se usa desde el frontend para navegación simple entre paneles.
+ *
+ * @param {string} nombreArchivo Nombre del archivo HTML (sin extensión).
+ */
+function cargarPagina(nombreArchivo) {
+  const nombre = String(nombreArchivo || '').trim();
+  if (!nombre) {
+    throw new Error('cargarPagina(nombreArchivo): nombreArchivo es obligatorio.');
+  }
+
+  if (nombre === 'panelTriggers') {
+    abrirPanelTriggers();
+    return;
+  }
+
+  const htmlOutput = ui_renderHtml(nombre).setTitle('Menú Gestión Tareas');
+  ui_mostrarSidebar(htmlOutput);
+}
+
+/**
+ * Devuelve el HTML de un archivo para carga dinámica en frontend.
+ * Se usa desde `cargarPagina(nombre)` (cliente) para pintar dentro de un contenedor.
+ *
+ * @param {string} nombre Nombre del archivo HTML (sin extensión).
+ * @returns {string} Contenido HTML del archivo.
+ */
+function obtenerHtml(nombre) {
+  const n = String(nombre || '').trim();
+  if (!n) {
+    throw new Error('obtenerHtml(nombre): nombre es obligatorio.');
+  }
+  // Renderizado como plantilla para soportar includes/templating en páginas parciales.
+  return ui_renderHtmlContent(n);
 }
 
 function include(filename) {
-  let html = ui_renderHtmlContent(filename);
-  return html;
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
 function gestorOpciones(opcion) {
 
-  console.log(opcion);
+  log(opcion);
 
   try {
 

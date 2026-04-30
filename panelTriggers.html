@@ -1,0 +1,279 @@
+<!--
+  panelTriggers.html
+  Vista (fragmento) para carga dinámica dentro de `#contenedor` (index.html).
+  Importante: este archivo NO incluye <html>/<head>/<body> para evitar problemas al inyectarlo con innerHTML.
+-->
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f1f3f4;
+    margin: 0;
+  }
+
+  .contenedor {
+    padding: 16px;
+    min-width: 800px;
+    color: #202124;
+  }
+
+  .card {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .titulo {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0;
+  }
+
+  .subtitulo {
+    font-size: 12px;
+    color: #5f6368;
+    margin: 6px 0 12px;
+  }
+
+  .botones {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    align-items: center;
+  }
+
+  button {
+    border-radius: 4px;
+    font-size: 13px;
+    padding: 6px 12px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #3c4043;
+    transition: background 120ms ease-in-out, border-color 120ms ease-in-out;
+  }
+
+  button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: #1a73e8;
+    color: white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: #1669c1;
+  }
+
+  .btn-danger {
+    background: transparent;
+    color: #d93025;
+    border: 1px solid #dadce0;
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: #fce8e6;
+  }
+
+  .btn-secondary {
+    background: #f1f3f4;
+    color: #3c4043;
+    border: 1px solid transparent;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: #e8eaed;
+  }
+
+  .table-container {
+    max-height: 55vh;
+    overflow-y: auto;
+    border: 1px solid #dadce0;
+    border-radius: 6px;
+    background: white;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th {
+    position: sticky;
+    top: 0;
+    background: #f8f9fa;
+    font-size: 12px;
+    font-weight: 500;
+    color: #5f6368;
+    text-align: left;
+    padding: 8px;
+    z-index: 2;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  /* Anchos de columna para estabilidad visual */
+  #tablaTriggers thead th:nth-child(1) {
+    width: 35%;
+  }
+  #tablaTriggers thead th:nth-child(2) {
+    width: 25%;
+  }
+  #tablaTriggers thead th:nth-child(3),
+  #tablaTriggers thead th:nth-child(4) {
+    width: 10%;
+  }
+  #tablaTriggers thead th:nth-child(5) {
+    width: 8%;
+  }
+
+  td {
+    padding: 6px 8px;
+    border-top: 1px solid #eee;
+    vertical-align: middle;
+    font-size: 13px;
+  }
+
+  /* Columna Acciones */
+  #tablaTriggers thead th:last-child,
+  #tablaTriggers tbody td:last-child {
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .btn-eliminar {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .btn-eliminar:hover:not(:disabled) {
+    filter: brightness(0.98);
+  }
+
+  tr:hover {
+    background: #f8f9fa;
+  }
+
+  /* Inputs generados por el JS (mantener IDs + lógica intacta) */
+  input,
+  select {
+    width: 100%;
+    padding: 4px 6px;
+    border-radius: 4px;
+    border: 1px solid #dadce0;
+    font-size: 12px;
+    background: white;
+    box-sizing: border-box;
+  }
+
+  input:focus,
+  select:focus {
+    outline: none;
+    border-color: #1a73e8;
+  }
+
+  .input-error {
+    border-color: #d93025 !important;
+    background: #fce8e6 !important;
+  }
+
+  /* Checkbox estilo Google */
+  input[type='checkbox'] {
+    transform: scale(1.1);
+    cursor: pointer;
+  }
+
+  /* Compatibilidad con clases que el JS aplica aunque no usemos Bootstrap */
+  .form-control,
+  .form-control-sm,
+  .form-select,
+  .form-select-sm {
+    width: 100%;
+  }
+
+  /* Alertas (JS cambia clases: alert-info/alert-success/alert-warning/alert-danger y d-none) */
+  .d-none {
+    display: none !important;
+  }
+
+  .alert {
+    padding: 10px;
+    border-radius: 6px;
+    margin-top: 10px;
+    font-size: 13px;
+  }
+
+  .alert-info {
+    background: #e8f0fe;
+    color: #1967d2;
+  }
+
+  .alert-success {
+    background: #e6f4ea;
+    color: #137333;
+  }
+
+  .alert-warning {
+    background: #fef7e0;
+    color: #b06000;
+  }
+
+  /* JS usa alert-danger; lo mapeamos a estilo de error Google */
+  .alert-danger,
+  .alert-error {
+    background: #fdecea;
+    color: #d93025;
+  }
+
+  .status {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #5f6368;
+  }
+</style>
+
+<div class="contenedor">
+  <div class="card">
+    <h2 class="titulo">Gestión de Triggers</h2>
+    <p class="subtitulo">Configura y aplica los triggers del proyecto</p>
+
+    <div class="botones">
+      <button id="btnGuardarConfiguracionTriggers" type="button" class="btn-primary">
+        Guardar configuración
+      </button>
+      <button id="btnRecrearTriggers" type="button" class="btn-danger">
+        Recrear triggers
+      </button>
+      <button id="btnAgregarTrigger" type="button" class="btn-secondary">
+        + Añadir trigger
+      </button>
+      <button id="btnCerrarDialogoTriggers" type="button" class="btn-secondary" style="margin-left:auto;">
+        Cerrar
+      </button>
+    </div>
+
+    <div class="table-container">
+      <table id="tablaTriggers">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Día de la semana</th>
+            <th>Hora</th>
+            <th>Minuto</th>
+            <th>Activo</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tablaTriggersBody"></tbody>
+      </table>
+    </div>
+
+    <div class="alert alert-info mt-2 d-none" id="panelTriggersAlert" role="alert"></div>
+    <div class="status" id="panelTriggersStatus"></div>
+
+    <!-- Script de UI del panel -->
+    <?!= include('panelTriggers_script'); ?>
+  </div>
+</div>

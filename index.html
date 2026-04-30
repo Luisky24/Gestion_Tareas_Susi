@@ -6,6 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
   <base target="_top">
   <title>Menú Gestión Tareas</title>
+  <!-- Bootstrap solo CSS (sin JavaScript de Bootstrap) para paneles dinámicos -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <style>
     /* Estilos en línea para organizar los botones en columna */
     body {
@@ -44,20 +47,22 @@
 </head>
 
 <body>
+  <!-- Menú principal -->
   <div id="opciones">
-    <button id="altaTarea" onclick="startAction(1)">Nueva Tarea</button>
-    <button id="finalizarTarea" onclick="startAction(2)">Finalizar Tarea</button>
-    <button id="reactivarTarea" onclick="startAction(3)">Reactivar Tarea</button>
-    <button id="borrarTarea" onclick="startAction(4)">Borrar Tarea</button>
-    <button id="reorganizarTareas" onclick="startAction(5)">Reorganiza Tareas</button>
-    <button id="moverFinalizados" onclick="startAction(6)">Mover Finalizados</button>
+    <button id="altaTarea">Nueva Tarea</button>
+    <button id="finalizarTarea">Finalizar Tarea</button>
+    <button id="reactivarTarea">Reactivar Tarea</button>
+    <button id="borrarTarea">Borrar Tarea</button>
+    <button id="reorganizarTareas">Reorganiza Tareas</button>
+    <button id="moverFinalizados">Mover Finalizados</button>
+    <button id="gestionTriggers">Gestión de Triggers</button>
     <div id="status" style="margin-up: 20px; margin-bottom: 10px; color: white;">Estado: Listo</div>
   </div>
 
+  <!-- Contenedor para carga dinámica de paneles -->
+  <div id="contenedor" style="flex: 1; margin-left: 20px;"></div>
 
-  <script>
-(function(){function e(e){let r=``;try{switch(e){case 1:r=`Nueva Tarea`;break;case 2:r=`Finalizar Tarea`;break;case 3:r=`Reactivar Tarea`;break;case 4:r=`Borrar Tarea`;break;case 5:r=`Reorganizar Tareas`;break;case 6:r=`Traspasar Tareas Finalizadas`;break;default:throw Error(`Opción seleccionada no existe`)}}catch(e){throw Error(e.message)}t(`Inicio proceso... ${r}`),console.log(`start `),n(),google.script.run.withSuccessHandler(e=>t(`Proceso completado.`)).withFailureHandler(e=>t(`Error: ${e.message}`)).gestorOpciones(e)}function t(e){r();let t=document.getElementById(`status`);t.innerText=`Estado: ${e}`,clearTimeout(t.timeout),t.timeout=setTimeout(()=>{t.innerText=`<< Puede seleccionar otra opción >>`},1e4)}function n(){document.querySelectorAll(`#opciones button`).forEach(e=>e.disabled=!0)}function r(){document.querySelectorAll(`#opciones button`).forEach(e=>e.disabled=!1)}(function(){console.log(`Bundle cargado correctamente desde Vite`)})(),window.startAction=e,window.updateStatus=t,window.desactivarBotones=n,window.activarBotones=r,console.log(`Bundle cargado correctamente desde Vite`)})();
-</script>
+  <?!= include('bundle_app'); ?>
 </body>
 
 </html>

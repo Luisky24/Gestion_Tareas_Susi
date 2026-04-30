@@ -1,0 +1,657 @@
+<!--
+  panelTriggers_script.html
+  Script del panel de triggers. Se incluye desde `panelTriggers.html` mediante:
+    <?!= include('panelTriggers_script'); ?>
+-->
+<script>
+/**
+ * Lógica de UI del panel de triggers (frontend).
+ *
+ * Importante:
+ * - No hay lógica inline en el HTML; toda la interacción vive aquí.
+ */
+(function () {
+  const DEBUG = false;
+  if (DEBUG) console.log('Panel cargado correctamente');
+
+  const ESTADOS = {
+    CARGANDO: 'Cargando',
+    SIN_CONFIG: 'Sin configuración',
+    LISTO: 'Listo',
+    GUARDADO: 'Guardado',
+    RECREADO: 'Recreado',
+    CANCELADO: 'Cancelado',
+    ERROR: 'Error',
+  };
+
+  /**
+   * Días de la semana soportados (deben coincidir con backend).
+   * Los valores son los enums que entiende `ScriptApp.WeekDay[...]`.
+   */
+  const DIAS_SEMANA_VALIDOS = [
+    'MONDAY',
+    'TUESDAY',
+    'WEDNESDAY',
+    'THURSDAY',
+    'FRIDAY',
+    'SATURDAY',
+    'SUNDAY',
+  ];
+
+  const DIA_LABEL_ES = {
+    MONDAY: 'Lunes',
+    TUESDAY: 'Martes',
+    WEDNESDAY: 'Miércoles',
+    THURSDAY: 'Jueves',
+    FRIDAY: 'Viernes',
+    SATURDAY: 'Sábado',
+    SUNDAY: 'Domingo',
+  };
+
+  // Fuente de verdad del estado actual en UI (para habilitar/deshabilitar acciones).
+  let configActual = [];
+
+  function $(id) {
+    return document.getElementById(id);
+  }
+
+  function setStatus(texto) {
+    const el = $('panelTriggersStatus');
+    const estado = texto == null ? '' : String(texto);
+    const estadosPermitidos = Object.values(ESTADOS);
+    if (!estadosPermitidos.includes(estado)) {
+      console.warn('Estado no permitido:', estado);
+      return;
+    }
+    if (estado === ESTADOS.LISTO) {
+      ocultarAlert();
+    }
+    if (el) el.textContent = estado;
+  }
+
+  function setAlert(texto, tipo) {
+    const el = $('panelTriggersAlert');
+    if (!el) return;
+
+    if (!texto) {
+      el.classList.add('d-none');
+      el.style.display = '';
+      el.textContent = '';
+      return;
+    }
+
+    el.style.display = '';
+    el.classList.remove('d-none', 'alert-info', 'alert-success', 'alert-warning', 'alert-danger');
+    el.classList.add(`alert-${tipo || 'info'}`);
+    el.textContent = texto;
+  }
+
+  function ocultarAlert() {
+    const el = $('panelTriggersAlert');
+    if (!el) return;
+    el.style.display = 'none';
+  }
+
+  function mostrarExito(msg) {
+    const texto = String(msg || '').trim();
+    if (!texto) return;
+    setAlert(texto, 'success');
+  }
+
+  function mostrarError(error) {
+    const rawMsg =
+      error && error.message
+        ? String(error.message)
+        : error != null
+          ? String(error)
+          : 'Se produjo un error.';
+
+    const msgLower = rawMsg.toLowerCase();
+    const isAuthError = msgLower.includes('authorization') || msgLower.includes('not authorized');
+    const msg = isAuthError
+      ? 'Error de permisos. Reautoriza el script ejecutando cualquier función desde el editor de Apps Script y vuelve a intentarlo.'
+      : rawMsg;
+
+    setAlert(msg, 'danger');
+    setStatus(ESTADOS.ERROR);
+  }
+
+  function setBotonesHabilitados(habilitados) {
+    const btnGuardar = $('btnGuardarConfiguracionTriggers');
+    const btnRecrear = $('btnRecrearTriggers');
+    const btnCerrar = $('btnCerrarDialogoTriggers');
+    if (btnGuardar) btnGuardar.disabled = !habilitados;
+    // Recrear depende de si hay configuración. Cuando habilitados=true lo gestiona actualizarEstadoUI().
+    if (btnRecrear && !habilitados) btnRecrear.disabled = true;
+    if (btnCerrar) btnCerrar.disabled = false;
+  }
+
+  function actualizarBotonRecrear_(config) {
+    const btnRecrear = $('btnRecrearTriggers');
+    if (!btnRecrear) return;
+
+    const hasConfig = Array.isArray(config) && config.length > 0;
+    btnRecrear.disabled = !hasConfig;
+    btnRecrear.title = hasConfig ? '' : 'Primero guarda una configuración antes de recrear triggers';
+  }
+
+  function actualizarEstadoUI() {
+    actualizarBotonRecrear_(configActual);
+  }
+
+  function ensureOriginalHtml_(btn) {
+    if (!btn) return;
+    if (!btn.dataset.originalHtml) {
+      btn.dataset.originalHtml = btn.innerHTML;
+    }
+  }
+
+  function restoreOriginalHtml_(btn) {
+    if (!btn) return;
+    if (btn.dataset && btn.dataset.originalHtml) {
+      btn.innerHTML = btn.dataset.originalHtml;
+    }
+  }
+
+  function setLoadingGuardar(estado) {
+    const btnGuardar = $('btnGuardarConfiguracionTriggers');
+    const btnRecrear = $('btnRecrearTriggers');
+    const btnCerrar = $('btnCerrarDialogoTriggers');
+
+    ensureOriginalHtml_(btnGuardar);
+    ensureOriginalHtml_(btnRecrear);
+
+    if (estado) {
+      if (btnGuardar) {
+        btnGuardar.disabled = true;
+        btnGuardar.innerHTML =
+          '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Guardando...';
+      }
+      // Deshabilitar recrear sin cambiar texto
+      if (btnRecrear) btnRecrear.disabled = true;
+      if (btnCerrar) btnCerrar.disabled = false;
+      return;
+    }
+
+    restoreOriginalHtml_(btnGuardar);
+    restoreOriginalHtml_(btnRecrear);
+  }
+
+  function setLoadingRecrear(estado) {
+    const btnGuardar = $('btnGuardarConfiguracionTriggers');
+    const btnRecrear = $('btnRecrearTriggers');
+    const btnCerrar = $('btnCerrarDialogoTriggers');
+
+    ensureOriginalHtml_(btnGuardar);
+    ensureOriginalHtml_(btnRecrear);
+
+    if (estado) {
+      if (btnRecrear) {
+        btnRecrear.disabled = true;
+        btnRecrear.innerHTML =
+          '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Recreando...';
+      }
+      // Deshabilitar guardar sin cambiar texto
+      if (btnGuardar) btnGuardar.disabled = true;
+      if (btnCerrar) btnCerrar.disabled = false;
+      return;
+    }
+
+    restoreOriginalHtml_(btnGuardar);
+    restoreOriginalHtml_(btnRecrear);
+  }
+
+  function cerrarDialogo() {
+    google.script.host.close();
+  }
+
+  function limpiarTabla() {
+    const tbody = $('tablaTriggersBody');
+    if (tbody) tbody.innerHTML = '';
+  }
+
+  function crearSelectDiaSemana(valorActual) {
+    const select = document.createElement('select');
+    select.className = 'form-select form-select-sm';
+
+    DIAS_SEMANA_VALIDOS.forEach((dia) => {
+      const opt = document.createElement('option');
+      opt.value = dia;
+      opt.textContent = DIA_LABEL_ES[dia] || dia;
+      if (dia === valorActual) opt.selected = true;
+      select.appendChild(opt);
+    });
+
+    return select;
+  }
+
+  function crearInputNumero({ min, max, value }) {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.className = 'form-control form-control-sm';
+    input.min = String(min);
+    input.max = String(max);
+    input.step = '1';
+    input.value = value == null ? '' : String(value);
+    input.inputMode = 'numeric';
+    return input;
+  }
+
+  function crearCheckboxActivo(valor) {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.className = 'form-check-input';
+    input.checked = valor === true;
+    return input;
+  }
+
+  function setInputError_(el, hasError) {
+    if (!el || !el.classList) return;
+    if (hasError) el.classList.add('input-error');
+    else el.classList.remove('input-error');
+  }
+
+  function validarNombre_(value) {
+    return typeof value === 'string' && value.trim() !== '';
+  }
+
+  function validarEnteroRango_(value, { min, max }) {
+    const n = Number(value);
+    if (!Number.isInteger(n)) return false;
+    return n >= min && n <= max;
+  }
+
+  function renderizarTablaTriggers(config) {
+    const tbody = $('tablaTriggersBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    actualizarBotonRecrear_(config);
+
+    (config || []).forEach((trigger, index) => {
+      const tr = document.createElement('tr');
+      tr.dataset.nombre = String(trigger.nombre || '').trim();
+
+      // Columna: Nombre (editable para permitir añadir/editar triggers)
+      const tdNombre = document.createElement('td');
+      const nombre = String(trigger.nombre || '');
+      const inputNombre = document.createElement('input');
+      inputNombre.type = 'text';
+      inputNombre.className = 'form-control form-control-sm';
+      inputNombre.value = nombre;
+      inputNombre.dataset.field = 'nombre';
+      inputNombre.placeholder = 'Nombre del trigger';
+      inputNombre.addEventListener('input', () => {
+        tr.dataset.nombre = String(inputNombre.value || '').trim();
+        setInputError_(inputNombre, !validarNombre_(inputNombre.value));
+      });
+      setInputError_(inputNombre, !validarNombre_(inputNombre.value));
+      tdNombre.appendChild(inputNombre);
+      tr.appendChild(tdNombre);
+
+      // Columna: Día de la semana (select)
+      const tdDia = document.createElement('td');
+      const selectDia = crearSelectDiaSemana(trigger.diaSemana);
+      selectDia.dataset.field = 'diaSemana';
+      tdDia.appendChild(selectDia);
+      tr.appendChild(tdDia);
+
+      // Columna: Hora (number 0-23)
+      const tdHora = document.createElement('td');
+      const inputHora = crearInputNumero({ min: 0, max: 23, value: trigger.hora });
+      inputHora.dataset.field = 'hora';
+      inputHora.addEventListener('input', () => {
+        setInputError_(inputHora, !validarEnteroRango_(inputHora.value, { min: 0, max: 23 }));
+      });
+      setInputError_(inputHora, !validarEnteroRango_(inputHora.value, { min: 0, max: 23 }));
+      tdHora.appendChild(inputHora);
+      tr.appendChild(tdHora);
+
+      // Columna: Minuto (number 0-59)
+      const tdMinuto = document.createElement('td');
+      const inputMinuto = crearInputNumero({ min: 0, max: 59, value: trigger.minuto });
+      inputMinuto.dataset.field = 'minuto';
+      inputMinuto.addEventListener('input', () => {
+        setInputError_(inputMinuto, !validarEnteroRango_(inputMinuto.value, { min: 0, max: 59 }));
+      });
+      setInputError_(inputMinuto, !validarEnteroRango_(inputMinuto.value, { min: 0, max: 59 }));
+      tdMinuto.appendChild(inputMinuto);
+      tr.appendChild(tdMinuto);
+
+      // Columna: Activo (checkbox)
+      const tdActivo = document.createElement('td');
+      tdActivo.className = 'text-center';
+      const chkActivo = crearCheckboxActivo(trigger.activo);
+      chkActivo.dataset.field = 'activo';
+      tdActivo.appendChild(chkActivo);
+      tr.appendChild(tdActivo);
+
+      // Columna: Acciones (eliminar)
+      const tdAcciones = document.createElement('td');
+      const btnEliminar = document.createElement('button');
+      btnEliminar.type = 'button';
+      btnEliminar.className = 'btn-danger btn-eliminar';
+      btnEliminar.textContent = 'Eliminar';
+      btnEliminar.addEventListener('click', () => {
+        if (!confirm('¿Eliminar este trigger?')) return;
+        if (!Array.isArray(configActual)) configActual = [];
+        configActual.splice(index, 1);
+        renderizarTablaTriggers(configActual);
+        actualizarEstadoUI();
+      });
+      tdAcciones.appendChild(btnEliminar);
+      tr.appendChild(tdAcciones);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  function agregarTrigger() {
+    const nuevo = {
+      nombre: '',
+      tipo: 'time',
+      diaSemana: 'MONDAY',
+      hora: 0,
+      minuto: 0,
+      activo: true,
+    };
+
+    if (!Array.isArray(configActual)) configActual = [];
+    configActual.push(nuevo);
+    renderizarTablaTriggers(configActual);
+    actualizarEstadoUI();
+  }
+
+  function cargarTriggers() {
+    setAlert('', 'info');
+    setStatus(ESTADOS.CARGANDO);
+    setBotonesHabilitados(false);
+
+    google.script.run
+      .withSuccessHandler((config) => {
+        try {
+          if (!Array.isArray(config)) {
+            throw new Error('La respuesta del servidor no es un array.');
+          }
+
+          configActual = config;
+
+          if (config.length === 0) {
+            limpiarTabla();
+            actualizarEstadoUI();
+            setAlert(
+              'No hay configuración de triggers todavía. ' +
+                "Pulsa 'Guardar configuración' para inicializarla con valores por defecto.",
+              'info'
+            );
+            setStatus(ESTADOS.SIN_CONFIG);
+            return;
+          }
+
+          renderizarTablaTriggers(config);
+          // Carga correcta (sin implicar que el usuario haya guardado en esta sesión)
+          setStatus(ESTADOS.LISTO);
+        } catch (e) {
+          mostrarError(e);
+        } finally {
+          setBotonesHabilitados(true);
+          actualizarEstadoUI();
+        }
+      })
+      .withFailureHandler((error) => {
+        mostrarError(error);
+        setBotonesHabilitados(true);
+        actualizarEstadoUI();
+      })
+      .apiObtenerTriggers();
+  }
+
+  function leerEnteroEnRango_(value, { min, max, campo, nombre }) {
+    const n = Number(value);
+    if (!Number.isInteger(n)) {
+      throw new Error(`Error en trigger '${nombre}': ${campo} inválido`);
+    }
+    if (n < min || n > max) {
+      throw new Error(`Error en trigger '${nombre}': ${campo} inválido`);
+    }
+    return n;
+  }
+
+  function guardarTriggers() {
+    setAlert('', 'info');
+    setStatus(ESTADOS.CARGANDO);
+    setLoadingGuardar(true);
+
+    try {
+      const tbody = $('tablaTriggersBody');
+      const filas = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+
+      if (filas.length === 0) {
+        // Primer uso: inicializa defaults en backend (sin duplicar lógica en frontend)
+        google.script.run
+          .withSuccessHandler((config) => {
+            setStatus(ESTADOS.GUARDADO);
+            mostrarExito("Configuración guardada. Pulsa 'Recrear triggers' para aplicar cambios.");
+            try {
+              if (Array.isArray(config) && config.length > 0) {
+                configActual = config;
+                renderizarTablaTriggers(config);
+                setAlert('', 'info');
+              }
+            } finally {
+              setLoadingGuardar(false);
+              setBotonesHabilitados(true);
+              actualizarEstadoUI();
+              const btnRecrear = $('btnRecrearTriggers');
+              if (btnRecrear && btnRecrear.disabled !== true) btnRecrear.focus();
+            }
+          })
+          .withFailureHandler((error) => {
+            mostrarError(error);
+            setLoadingGuardar(false);
+            setBotonesHabilitados(true);
+            actualizarEstadoUI();
+          })
+          .apiInicializarTriggersConfig();
+        return;
+      }
+
+      const config = filas.map((tr) => {
+        const nombre =
+          String(
+            tr.dataset.nombre ||
+              tr.querySelector('[data-field="nombre"]')?.value ||
+              tr.children[0]?.textContent ||
+              ''
+          ).trim();
+        if (!nombre) {
+          throw new Error("Error en trigger '(sin nombre)': nombre inválido");
+        }
+
+        const selectDia = tr.querySelector('[data-field="diaSemana"]');
+        const inputHora = tr.querySelector('[data-field="hora"]');
+        const inputMinuto = tr.querySelector('[data-field="minuto"]');
+        const chkActivo = tr.querySelector('[data-field="activo"]');
+
+        const diaSemana = selectDia ? String(selectDia.value) : '';
+        if (!DIAS_SEMANA_VALIDOS.includes(diaSemana)) {
+          throw new Error(`Error en trigger '${nombre}': diaSemana inválido`);
+        }
+
+        const hora = leerEnteroEnRango_(inputHora ? inputHora.value : '', {
+          min: 0,
+          max: 23,
+          campo: 'hora',
+          nombre,
+        });
+
+        const minuto = leerEnteroEnRango_(inputMinuto ? inputMinuto.value : '', {
+          min: 0,
+          max: 59,
+          campo: 'minuto',
+          nombre,
+        });
+
+        const activo = !!(chkActivo && chkActivo.checked);
+
+        return {
+          nombre,
+          tipo: 'time',
+          diaSemana,
+          hora,
+          minuto,
+          activo,
+        };
+      });
+
+      google.script.run
+        .withSuccessHandler(() => {
+          // Fuente de verdad: releer desde backend tras guardar correctamente.
+          google.script.run
+            .withSuccessHandler((configBackend) => {
+              configActual = Array.isArray(configBackend) ? configBackend : [];
+              actualizarEstadoUI();
+              setStatus(ESTADOS.GUARDADO);
+              mostrarExito("Configuración guardada. Pulsa 'Recrear triggers' para aplicar cambios.");
+              setLoadingGuardar(false);
+              setBotonesHabilitados(true);
+              const btnRecrear = $('btnRecrearTriggers');
+              if (btnRecrear && btnRecrear.disabled !== true) btnRecrear.focus();
+            })
+            .withFailureHandler((error) => {
+              // Si falla la relectura, no tocamos configActual (evita desincronización).
+              mostrarError(error);
+              setLoadingGuardar(false);
+              setBotonesHabilitados(true);
+              actualizarEstadoUI();
+            })
+            .apiObtenerTriggers();
+        })
+        .withFailureHandler((error) => {
+          mostrarError(error);
+          setLoadingGuardar(false);
+          setBotonesHabilitados(true);
+          actualizarEstadoUI();
+        })
+        .apiGuardarTriggers(config);
+    } catch (e) {
+      mostrarError(e);
+      setLoadingGuardar(false);
+      setBotonesHabilitados(true);
+      actualizarEstadoUI();
+    }
+  }
+
+  function recrearTriggers() {
+    setAlert('', 'info');
+    if (
+      !confirm(
+        'Esto eliminará y recreará todos los triggers según la configuración actual.\n\n' +
+          'Puede requerir autorización si es la primera vez.\n\n' +
+          '¿Deseas continuar?'
+      )
+    ) {
+      setStatus(ESTADOS.CANCELADO);
+      setAlert('Acción cancelada.', 'info');
+      setTimeout(() => {
+        ocultarAlert();
+      }, 3000);
+      setBotonesHabilitados(true);
+      actualizarEstadoUI();
+      return;
+    }
+
+    setStatus(ESTADOS.CARGANDO);
+    setLoadingRecrear(true);
+
+    google.script.run
+      .withSuccessHandler(() => {
+        setStatus(ESTADOS.RECREADO);
+        mostrarExito('Triggers recreados correctamente.');
+        setLoadingRecrear(false);
+        setBotonesHabilitados(true);
+        actualizarEstadoUI();
+      })
+      .withFailureHandler((error) => {
+        mostrarError(error);
+        setLoadingRecrear(false);
+        setBotonesHabilitados(true);
+        actualizarEstadoUI();
+      })
+      .apiRecrearTriggers();
+  }
+
+  /**
+   * Inicializa el panel de triggers.
+   * Diseñado para ser idempotente en escenarios de carga dinámica donde el script
+   * puede ejecutarse varias veces.
+   */
+  function inicializarPanelTriggers() {
+    // Marca por instancia del DOM: si el panel se vuelve a inyectar (nuevo HTML),
+    // esta marca no existe y se volverá a inicializar correctamente.
+    const tabla = $('tablaTriggers');
+    if (tabla && tabla.dataset && tabla.dataset.panelTriggersInit === 'true') {
+      return;
+    }
+    if (tabla && tabla.dataset) {
+      tabla.dataset.panelTriggersInit = 'true';
+    }
+
+    // Evitar duplicación de listeners: clonar botones para eliminar handlers previos.
+    const btnGuardar = $('btnGuardarConfiguracionTriggers');
+    const btnRecrear = $('btnRecrearTriggers');
+    const btnAgregar = $('btnAgregarTrigger');
+    const btnCerrar = $('btnCerrarDialogoTriggers');
+
+    let btnGuardarClean = btnGuardar;
+    if (btnGuardar && btnGuardar.parentNode) {
+      btnGuardarClean = btnGuardar.cloneNode(true);
+      btnGuardar.replaceWith(btnGuardarClean);
+    }
+
+    let btnRecrearClean = btnRecrear;
+    if (btnRecrear && btnRecrear.parentNode) {
+      btnRecrearClean = btnRecrear.cloneNode(true);
+      btnRecrear.replaceWith(btnRecrearClean);
+    }
+
+    let btnAgregarClean = btnAgregar;
+    if (btnAgregar && btnAgregar.parentNode) {
+      btnAgregarClean = btnAgregar.cloneNode(true);
+      btnAgregar.replaceWith(btnAgregarClean);
+    }
+
+    let btnCerrarClean = btnCerrar;
+    if (btnCerrar && btnCerrar.parentNode) {
+      btnCerrarClean = btnCerrar.cloneNode(true);
+      btnCerrar.replaceWith(btnCerrarClean);
+    }
+
+    if (btnGuardarClean) {
+      btnGuardarClean.addEventListener('click', guardarTriggers);
+    }
+
+    if (btnRecrearClean) {
+      btnRecrearClean.addEventListener('click', recrearTriggers);
+    }
+
+    if (btnAgregarClean) {
+      btnAgregarClean.addEventListener('click', agregarTrigger);
+    }
+
+    if (btnCerrarClean) {
+      btnCerrarClean.addEventListener('click', cerrarDialogo);
+    }
+
+    // Carga inicial al abrir el panel
+    cargarTriggers();
+  }
+
+  document.addEventListener('DOMContentLoaded', inicializarPanelTriggers);
+
+  // En carga dinámica, el script se re-ejecuta tras inyectar HTML; inicializamos también aquí.
+  inicializarPanelTriggers();
+})();
+</script>
+

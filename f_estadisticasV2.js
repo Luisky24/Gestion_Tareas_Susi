@@ -1,3 +1,10 @@
+function log(...args) {
+  console.log('[APP]', ...args);
+}
+
+function error(...args) {
+  console.error('[APP ERROR]', ...args);
+}
 
 const libro = SpreadsheetApp.getActiveSpreadsheet();
 const nombreHoja = "Estadisticas";
@@ -36,7 +43,7 @@ function estadisticasV2() {
 
     grabarEnHjEstadisticas(valores);
 
-    console.log("Proceso estadísticas finalizado de forma correcta");
+    log("Proceso estadísticas finalizado de forma correcta");
 
   } catch (error) {
     registrarError("estadisticasV2", error);
@@ -386,7 +393,7 @@ function registrarError(funcion, error) {
       error.stack || ''
     ]);
 
-    console.error(`❌ Error en ${funcion}: ${error.message}`);
+    error(`❌ Error en ${funcion}: ${error.message}`);
 
   } catch (e) {
     Logger.log("Error al registrar error: " + e.message);

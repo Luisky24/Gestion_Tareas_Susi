@@ -1,3 +1,10 @@
+function log(...args) {
+  console.log('[APP]', ...args);
+}
+
+function error(...args) {
+  console.error('[APP ERROR]', ...args);
+}
 
 function calculoEstadisticas() {
   procesarResumenPorFechaFin('Tareas', 'Hecho');
@@ -35,8 +42,7 @@ function procesarResumenPorFechaFin(...nombresHojas) {
 
   hojaResumen.getRange(1, 1, salidaOrdenada.length, numColumnas).setValues(salidaOrdenada);
 
-
-  console.log("Proceso resumen semanal finalizado de forma correcta");
+  log("Proceso resumen semanal finalizado de forma correcta");
 
 }
 
