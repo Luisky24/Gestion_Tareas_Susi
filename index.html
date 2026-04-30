@@ -56,67 +56,8 @@
 
 
   <script>
-    
-    function startAction(opcion) {
-      let nbOpcion = "";
-      try {
-    
-      switch (opcion) {
-        case 1: nbOpcion = 'Nueva Tarea';
-                break;
-        case 2: nbOpcion = 'Finalizar Tarea';;
-                break;
-        case 3: nbOpcion = 'Reactivar Tarea';;
-                break;
-        case 4: nbOpcion = 'Borrar Tarea';;
-                break;
-        case 5: nbOpcion = 'Reorganizar Tareas';;
-                break;
-        case 6: nbOpcion = 'Traspasar Tareas Finalizadas';;
-                break;
-        default:
-          throw new Error("Opción seleccionada no existe");
-
-      }
-
-  } catch(err) {
-    throw new Error(err.message);
-  }
-      let inicio = `Inicio proceso... ${nbOpcion}`;
-      updateStatus(inicio);
-      console.log("start ");
-      desactivarBotones();
-      // Llamada al servidor con un manejador de éxito
-      google.script.run
-        .withSuccessHandler((error) => updateStatus(`Proceso completado.`))
-        .withFailureHandler((error) => updateStatus(`Error: ${error.message}`))
-        .gestorOpciones(opcion);
-    }
-
-    function updateStatus(message) {
-      activarBotones();
-      const defaultStatus = "<< Puede seleccionar otra opción >>";
-      const statusElement = document.getElementById('status');
-      statusElement.innerText = `Estado: ${message}`;
-
-      // Restaurar el estado inicial después de 10 segundos (10,000 ms)
-      clearTimeout(statusElement.timeout); // Cancelar cualquier temporizador previo
-      statusElement.timeout = setTimeout(() => {
-        statusElement.innerText = defaultStatus;
-      }, 10000); // 10,000 ms = 10 segundos
-    }
-
-    function desactivarBotones() {
-      const buttons = document.querySelectorAll("#opciones button");
-      buttons.forEach(button => (button.disabled = true)); // Desactiva todos los botones
-    }
-
-    function activarBotones() {
-      const buttons = document.querySelectorAll("#opciones button");
-      buttons.forEach(button => (button.disabled = false));
-    }
-
-  </script>
+(function(){function e(e){let r=``;try{switch(e){case 1:r=`Nueva Tarea`;break;case 2:r=`Finalizar Tarea`;break;case 3:r=`Reactivar Tarea`;break;case 4:r=`Borrar Tarea`;break;case 5:r=`Reorganizar Tareas`;break;case 6:r=`Traspasar Tareas Finalizadas`;break;default:throw Error(`Opción seleccionada no existe`)}}catch(e){throw Error(e.message)}t(`Inicio proceso... ${r}`),console.log(`start `),n(),google.script.run.withSuccessHandler(e=>t(`Proceso completado.`)).withFailureHandler(e=>t(`Error: ${e.message}`)).gestorOpciones(e)}function t(e){r();let t=document.getElementById(`status`);t.innerText=`Estado: ${e}`,clearTimeout(t.timeout),t.timeout=setTimeout(()=>{t.innerText=`<< Puede seleccionar otra opción >>`},1e4)}function n(){document.querySelectorAll(`#opciones button`).forEach(e=>e.disabled=!0)}function r(){document.querySelectorAll(`#opciones button`).forEach(e=>e.disabled=!1)}(function(){console.log(`Bundle cargado correctamente desde Vite`)})(),window.startAction=e,window.updateStatus=t,window.desactivarBotones=n,window.activarBotones=r,console.log(`Bundle cargado correctamente desde Vite`)})();
+</script>
 </body>
 
 </html>

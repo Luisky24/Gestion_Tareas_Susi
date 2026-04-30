@@ -4,7 +4,7 @@
  *
  * Restricciones:
  * - No contiene IO directo fuera de llamadas io_*.
- * - No contiene lógica de negocio fuera de llamadas dom_*/tec_*.
+ * - No contiene lógica de negocio fuera de llamadas dom_* / tec_*.
  */
 
 /**
