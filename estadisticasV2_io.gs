@@ -7,9 +7,9 @@
  * - Depende de esas variables definidas en `f_estadisticas_flujo.js` (ámbito global de Apps Script).
  */
 
-function obtenerDatosHoja(hojaBusqueda) {
+function obtenerDatosHoja(ctx, hojaBusqueda) {
   try {
-    const hoja = libro.getSheetByName(hojaBusqueda);
+    const hoja = ctx.libro.getSheetByName(hojaBusqueda);
     if (!hoja) throw new Error(`No existe la hoja "${hojaBusqueda}"`);
 
     const numFilas = hoja.getLastRow();
@@ -25,17 +25,17 @@ function obtenerDatosHoja(hojaBusqueda) {
   }
 }
 
-function prepararHojaEstadisticas() {
+function prepararHojaEstadisticas(ctx) {
   try {
-    if (existeHoja()) {
-      borrarHoja();
+    if (existeHoja(ctx)) {
+      borrarHoja(ctx);
     }
 
-    crearHoja(3);
-    hoja.getRange(1, 1, 1, cabeceras.length).setValues([cabeceras]);
+    crearHoja(ctx, 3);
+    ctx.hoja.getRange(1, 1, 1, ctx.cabeceras.length).setValues([ctx.cabeceras]);
 
-    tareas = obtenerDatosHoja("Tareas");
-    hechos = obtenerDatosHoja("Hecho");
+    ctx.tareas = obtenerDatosHoja(ctx, "Tareas");
+    ctx.hechos = obtenerDatosHoja(ctx, "Hecho");
 
   } catch (error) {
     registrarError("prepararHojaEstadisticas", error);
@@ -43,12 +43,12 @@ function prepararHojaEstadisticas() {
   }
 }
 
-function grabarEnHjEstadisticas(valores) {
+function grabarEnHjEstadisticas(ctx, valores) {
   try {
-    if (!hoja) throw new Error('No existe la hoja "Estadísticas"');
+    if (!ctx.hoja) throw new Error('No existe la hoja "Estadísticas"');
 
     if (valores.length > 0) {
-      hoja.getRange(2, 1, valores.length, valores[0].length).setValues(valores);
+      ctx.hoja.getRange(2, 1, valores.length, valores[0].length).setValues(valores);
     } else {
       throw new Error('No hay valores para escribir.');
     }
@@ -58,23 +58,22 @@ function grabarEnHjEstadisticas(valores) {
   }
 }
 
-function existeHoja() {
-  //const hoja = libro.getSheetByName(nombreHoja);
-  return hoja !== null;
+function existeHoja(ctx) {
+  return ctx.hoja !== null;
 }
 
-function borrarHoja() {
+function borrarHoja(ctx) {
   try {
-    libro.deleteSheet(hoja);
+    ctx.libro.deleteSheet(ctx.hoja);
   } catch (error) {
     registrarError("borrarHoja", error);
   }
 }
 
-function crearHoja(posicionLibro) {
+function crearHoja(ctx, posicionLibro) {
   try {
-    libro.insertSheet(nombreHoja, posicionLibro);
-    hoja = libro.getSheetByName(nombreHoja);
+    ctx.libro.insertSheet(ctx.nombreHoja, posicionLibro);
+    ctx.hoja = ctx.libro.getSheetByName(ctx.nombreHoja);
   } catch (error) {
     registrarError("crearHoja", error);
   }

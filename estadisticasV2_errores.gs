@@ -21,7 +21,7 @@ function registrarError(funcion, error) {
       error.stack || ''
     ]);
 
-    error(`❌ Error en ${funcion}: ${error.message}`);
+    APP.LOG.error(`❌ Error en ${funcion}: ${error.message}`);
 
   } catch (e) {
     Logger.log("Error al registrar error: " + e.message);

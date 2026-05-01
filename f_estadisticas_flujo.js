@@ -34,19 +34,27 @@
  */
 
 function log(...args) {
-  console.log('[APP]', ...args);
+  // Compatibilidad: se mantiene el nombre, pero se centraliza el destino.
+  APP.LOG.log('[APP] ' + args.map(String).join(' '));
 }
 
 function error(...args) {
-  console.error('[APP ERROR]', ...args);
+  // Compatibilidad: se mantiene el nombre, pero se centraliza el destino.
+  APP.LOG.error('[APP ERROR] ' + args.map(String).join(' '));
 }
 
-const libro = SpreadsheetApp.getActiveSpreadsheet();
-const nombreHoja = "Estadisticas";
-let hoja = libro.getSheetByName(nombreHoja);
-const cabeceras = ["Año", "Semana", "Tareas Nuevas", "Tareas Abiertas", "Tareas Cerradas"];
-let tareas;
-let hechos;
+function _statsV2_buildCtx_() {
+  const libro = SpreadsheetApp.getActiveSpreadsheet();
+  const nombreHoja = "Estadisticas";
+  return {
+    libro,
+    nombreHoja,
+    hoja: libro.getSheetByName(nombreHoja),
+    cabeceras: ["Año", "Semana", "Tareas Nuevas", "Tareas Abiertas", "Tareas Cerradas"],
+    tareas: [],
+    hechos: [],
+  };
+}
 
 // Único motor de estadísticas soportado actualmente.
 // Prohibido crear V3/V4 en paralelo: cualquier evolución debe hacerse sobre este motor o mediante feature flags.
@@ -68,18 +76,19 @@ function ejecutarEstadisticasFlujo() {
 function _estadisticasV2() {
 
   try {
+    const ctx = _statsV2_buildCtx_();
 
     // Borramos y creamos la hoja
     // Obtenemos la información para los cálculos
-    prepararHojaEstadisticas();
+    prepararHojaEstadisticas(ctx);
 
     // Versión optimizada (una sola pasada). Validada contra funciones originales.
-    const resultado = _contarTareasNuevasYCerradas();
+    const resultado = _contarTareasNuevasYCerradas(ctx);
     let contadorNuevas = resultado.nuevas;
     let contadorCerradas = resultado.cerradas;
 
     // Versión optimizada (deltas + prefijo). Validada contra versión original.
-    let contadorAbiertas = _contarTareasAbiertasPorSemana();
+    let contadorAbiertas = _contarTareasAbiertasPorSemana(ctx);
 
     let nuevasAbiertasCerradas = _unirNuevasAbiertasCerradas(contadorNuevas, contadorCerradas, contadorAbiertas);
 
@@ -87,9 +96,9 @@ function _estadisticasV2() {
 
     const valores = _formatearDatos(nuevasAbiertasCerradas);
 
-    grabarEnHjEstadisticas(valores);
+    grabarEnHjEstadisticas(ctx, valores);
 
-    log("Proceso estadísticas finalizado de forma correcta");
+    APP.LOG.log("Proceso estadísticas finalizado de forma correcta");
 
   } catch (error) {
     registrarError("estadisticasV2", error);
@@ -135,7 +144,7 @@ function _siguienteSemanaISO(anio, semana) {
  *
  * @returns {Map<string, number>}
  */
-function _contarTareasAbiertasPorSemana() {
+function _contarTareasAbiertasPorSemana(ctx) {
   // Índices del modelo de datos (filas leídas con getDisplayValues)
   const IDX_FECHA_INICIO = 0;
   const IDX_FECHA_FIN = 6;
@@ -171,7 +180,7 @@ function _contarTareasAbiertasPorSemana() {
 
   const ywToAbs_ = (yw) => isoWeekToDateMondayUTC_(Number(yw.anno), Number(yw.semana)).getTime();
 
-  for (const tarea of tareas) {
+  for (const tarea of ctx.tareas) {
     const fechaInicioStr = tarea[IDX_FECHA_INICIO];
     const fechaFin = tarea[IDX_FECHA_FIN];
 
@@ -219,7 +228,7 @@ function _contarTareasAbiertasPorSemana() {
  *
  * @returns {{nuevas: Map<string, number>, cerradas: Map<string, number>}}
  */
-function _contarTareasNuevasYCerradas() {
+function _contarTareasNuevasYCerradas(ctx) {
   // Índices del modelo de datos (filas leídas con getDisplayValues)
   const IDX_FECHA_INICIO = 0;
   const IDX_FECHA_FIN = 6;
@@ -250,12 +259,12 @@ function _contarTareasNuevasYCerradas() {
   };
 
   // Equivalente a `let union = [...tareas, ...hechos]; contarXTipo(..., union, 'N');`
-  for (const row of tareas) procesarFilaNuevas(row);
-  for (const row of hechos) procesarFilaNuevas(row);
+  for (const row of ctx.tareas) procesarFilaNuevas(row);
+  for (const row of ctx.hechos) procesarFilaNuevas(row);
 
   // Equivalente a filtrar union por fechaFin no vacía y `contarXTipo(..., 'C')`.
-  for (const row of tareas) procesarFilaCerradasSiAplica(row);
-  for (const row of hechos) procesarFilaCerradasSiAplica(row);
+  for (const row of ctx.tareas) procesarFilaCerradasSiAplica(row);
+  for (const row of ctx.hechos) procesarFilaCerradasSiAplica(row);
 
   return { nuevas, cerradas };
 }
@@ -338,7 +347,13 @@ function _contarTareasCerradas() {
 
   let mapa1 = new Map();
 
-  let union = [...tareas, ...hechos];
+  // Compatibilidad: esta función legacy sigue existiendo.
+  // Para evitar dependencia implícita, se construye ctx localmente.
+  const ctx = _statsV2_buildCtx_();
+  ctx.tareas = obtenerDatosHoja(ctx, "Tareas");
+  ctx.hechos = obtenerDatosHoja(ctx, "Hecho");
+
+  let union = [...ctx.tareas, ...ctx.hechos];
 
   const unionConFechaFin = union.filter(ele => {
     const fin = ele[IDX_FECHA_FIN];
@@ -356,7 +371,13 @@ function _contarTareasNuevas() {
 
   let mapa = new Map;
 
-  let union = [...tareas, ...hechos];
+  // Compatibilidad: esta función legacy sigue existiendo.
+  // Para evitar dependencia implícita, se construye ctx localmente.
+  const ctx = _statsV2_buildCtx_();
+  ctx.tareas = obtenerDatosHoja(ctx, "Tareas");
+  ctx.hechos = obtenerDatosHoja(ctx, "Hecho");
+
+  let union = [...ctx.tareas, ...ctx.hechos];
 
   mapa = _contarXTipo(mapa, union, 'N');
 

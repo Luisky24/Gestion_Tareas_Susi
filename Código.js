@@ -1,9 +1,9 @@
 function log(...args) {
-  console.log('[APP]', ...args);
+  APP.LOG.log('[APP] ' + args.map(String).join(' '));
 }
 
 function error(...args) {
-  console.error('[APP ERROR]', ...args);
+  APP.LOG.error('[APP ERROR] ' + args.map(String).join(' '));
 }
 
 function onOpen() {
@@ -13,7 +13,7 @@ function onOpen() {
   }
 
   //let hj_Actual = SpreadsheetApp.getActiveSheet();
-  log("Nombre Hoja: " + hj_actual.getName());
+  APP.LOG.log("Nombre Hoja: " + hj_actual.getName());
 
   // Poner color pijama y despues color vencidas
   //pijama(hj_actual);
@@ -28,7 +28,7 @@ function onOpen() {
 function mostrarBarraLateral() {
   var barra = ui_renderHtml('index').setTitle('Menú Gestión Tareas');
   ui_mostrarSidebar(barra);
-  log("");
+  APP.LOG.log("");
 }
 
 function abrirPanelTriggers() {
@@ -83,7 +83,7 @@ function include(filename) {
 
 function gestorOpciones(opcion) {
 
-  log(opcion);
+  APP.LOG.log(opcion);
 
   try {
 

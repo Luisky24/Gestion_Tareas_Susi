@@ -25,11 +25,11 @@
  * - No eliminar/“reemplazar” este módulo por el de flujo sin validar el reporting requerido.
  */
 function log(...args) {
-  console.log('[APP]', ...args);
+  APP.LOG.log('[APP] ' + args.map(String).join(' '));
 }
 
 function error(...args) {
-  console.error('[APP ERROR]', ...args);
+  APP.LOG.error('[APP ERROR] ' + args.map(String).join(' '));
 }
 
 function ejecutarEstadisticasAnaliticas() {
@@ -68,7 +68,7 @@ function procesarResumenPorFechaFin(...nombresHojas) {
 
   hojaResumen.getRange(1, 1, salidaOrdenada.length, numColumnas).setValues(salidaOrdenada);
 
-  log("Proceso resumen semanal finalizado de forma correcta");
+  APP.LOG.log("Proceso resumen semanal finalizado de forma correcta");
 
 }
 
