@@ -1,3 +1,29 @@
+/**
+ * Módulo: Estadísticas analíticas (reporting legacy)
+ *
+ * **Propósito**
+ * - Generar reporting semanal “analítico” para lectura humana y seguimiento histórico.
+ *
+ * **Métricas que genera (salida principal)**
+ * - Hoja `Resumen Semanal` con agregación por semana/año e información analítica:
+ *   - Número de tareas (hechas)
+ *   - Media de días desde inicio (hechas)
+ *   - Desviación media en días vs fecha fin estimada (hechas)
+ *   - Tareas nuevas semana (no hechas)
+ *   - Total tareas no hechas
+ * - Hoja `Errores` (se limpia en cada ejecución) para diagnóstico del reporting.
+ *
+ * **Diferencias respecto al sistema de flujo (V2)**
+ * - El sistema de flujo (`f_estadisticas_flujo.js`) genera métricas operativas simples
+ *   (Nuevas/Abiertas/Cerradas) en la hoja `Estadisticas`.
+ * - Este módulo desglosa por dimensiones adicionales (p.ej. estado/prioridad) y calcula medias/desviaciones.
+ *
+ * **ADVERTENCIA (NO equivalencia)**
+ * - Este módulo NO es equivalente al de flujo:
+ *   - No produce la misma hoja ni la misma estructura de columnas.
+ *   - No calcula las mismas métricas.
+ * - No eliminar/“reemplazar” este módulo por el de flujo sin validar el reporting requerido.
+ */
 function log(...args) {
   console.log('[APP]', ...args);
 }
@@ -6,7 +32,7 @@ function error(...args) {
   console.error('[APP ERROR]', ...args);
 }
 
-function calculoEstadisticas() {
+function ejecutarEstadisticasAnaliticas() {
   procesarResumenPorFechaFin('Tareas', 'Hecho');
 }
 

@@ -88,14 +88,14 @@ El repo incluye utilidad para listar triggers en `Logger`.
   - EVIDENCIA: `Código.js` → `getSheetByName('Tareas')` y `getSheetByName('Hecho')`.
 - Para estadísticas:
   - `estadisticasV2` crea `Estadisticas` si no existe (y borra si existe).
-    - EVIDENCIA: `f_estadisticasV2.js` → `prepararHojaEstadisticas()` → `if (existeHoja()) borrarHoja(); crearHoja(3);`.
-  - `calculoEstadisticas` crea/limpia `Resumen Semanal` y `Errores`.
-    - EVIDENCIA: `f_estadisticas.js` → `procesarResumenPorFechaFin()` → `ss.getSheetByName('Resumen Semanal') || ss.insertSheet('Resumen Semanal')` y `hojaErrores = ... || ss.insertSheet('Errores'); hojaErrores.clearContents();`.
+    - EVIDENCIA: `f_estadisticas_flujo.js` → `prepararHojaEstadisticas()` → `if (existeHoja()) borrarHoja(); crearHoja(3);`.
+  - `ejecutarEstadisticasAnaliticas` crea/limpia `Resumen Semanal` y `Errores`.
+    - EVIDENCIA: `f_estadisticas_analitico.js` → `procesarResumenPorFechaFin()` → `ss.getSheetByName('Resumen Semanal') || ss.insertSheet('Resumen Semanal')` y `hojaErrores = ... || ss.insertSheet('Errores'); hojaErrores.clearContents();`.
 
 ### Formato de fechas (crítico para estadísticas)
 
 - `estadisticasV2` parsea strings `dd/MM/yyyy`.
-  - EVIDENCIA: `f_estadisticasV2.js` → `convertirAFecha(str)` → `const [d,m,y] = str.split("/").map(Number);`.
+  - EVIDENCIA: `f_estadisticas_flujo.js` → `convertirAFecha(str)` → `const [d,m,y] = str.split("/").map(Number);`.
 - Riesgo operativo: si el display en la hoja no sigue `dd/MM/yyyy` (p.ej. `MM/dd/yyyy`), los conteos semanales serán erróneos.
-  - EVIDENCIA: `f_estadisticasV2.js` → `convertirAFecha(str)` → split por `/` y asignación `new Date(y, m-1, d)`.
+  - EVIDENCIA: `f_estadisticas_flujo.js` → `convertirAFecha(str)` → split por `/` y asignación `new Date(y, m-1, d)`.
 

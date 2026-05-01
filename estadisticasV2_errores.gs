@@ -1,6 +1,6 @@
 /**
  * Gestión de errores para Estadísticas V2.
- * Mantiene nombres/firmas/lógica exactamente igual que en `f_estadisticasV2.js`.
+ * Mantiene nombres/firmas/lógica exactamente igual que en `f_estadisticas_flujo.js`.
  */
 
 function registrarError(funcion, error) {

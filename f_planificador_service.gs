@@ -4,20 +4,50 @@
  * Aquí se centralizará la lógica de negocio/orquestación relacionada con planificación (sin acceso directo a UI ni IO).
  */
 
-function ejecutarCalculoEstadisticas() {
-  estadisticasV2();
-  // El siguiente proceso son las estadísticas semanales que estan en el archivo f_secundarias.gs
-  calculoEstadisticas();
+/**
+ * Punto único de entrada para todas las estadísticas del sistema.
+ * No llamar directamente a funciones internas.
+ */
+function ejecutarEstadisticasDelSistema() {
+  /**
+   * Orquestador de estadísticas del sistema.
+   *
+   * Este proyecto mantiene **dos sistemas** de estadísticas:
+   * - **Flujo (operativo)**: métricas simples para seguimiento del funcionamiento semanal.
+   * - **Analítico (reporting)**: reporte más rico para análisis de rendimiento.
+   *
+   * IMPORTANTE:
+   * - **NO son equivalentes** (no generan las mismas hojas, ni las mismas métricas/dimensiones).
+   * - **Ambos son necesarios actualmente** para cubrir operación + análisis.
+   * - **No eliminar** uno de los dos sin un análisis funcional del reporting y de los consumidores actuales.
+   */
 
-  // Ejecución paralela V3 para validación antes de migración
-  try {
-    app_ejecutarEstadisticasV3();
-  } catch (e) {
-    Logger.log(
-      `Error en ejecución paralela V3 (app_ejecutarEstadisticasV3): ${
-        e && e.message ? e.message : String(e)
-      }\n${e && e.stack ? e.stack : ""}`
-    );
+  // Feature flags (control de activación):
+  // - Útil para pruebas, despliegues graduales y control operativo.
+  // - NO sustituye a eliminar código: desactivar no implica que sea “seguro borrar” sin análisis.
+  const CONFIG_ESTADISTICAS = {
+    flujo: true,
+    analitico: true,
+  };
+
+  // A) `ejecutarEstadisticasFlujo()`
+  // - Genera **métricas operativas** en la hoja `Estadisticas`.
+  // - Tipo de métricas: **nuevas**, **abiertas**, **cerradas** (agregación semanal ISO).
+  // - Uso: seguimiento del sistema / flujo de trabajo (monitorización operativa).
+  if (CONFIG_ESTADISTICAS.flujo === true) {
+    ejecutarEstadisticasFlujo();
   }
+
+  // B) `ejecutarEstadisticasAnaliticas()`
+  // - Genera **reporting analítico** en la hoja `Resumen Semanal`.
+  // - Incluye segmentación por **estado** y **prioridad**, y cálculos como **medias** (y otras medidas analíticas).
+  // - Uso: análisis de rendimiento (duraciones, desviaciones y seguimiento histórico).
+  if (CONFIG_ESTADISTICAS.analitico === true) {
+    ejecutarEstadisticasAnaliticas();
+  }
+}
+
+function ejecutarCalculoEstadisticas() {
+  ejecutarEstadisticasDelSistema();
 }
 

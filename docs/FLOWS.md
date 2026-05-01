@@ -120,32 +120,32 @@
 ### Contrato: `estadisticasV2()`
 
 - **Capa**: Batch/Estadísticas (servidor GAS)
-- **Ubicación**: `f_estadisticasV2.js`
+- **Ubicación**: `f_estadisticas_flujo.js`
 - **Propósito**: Recalcular hoja `Estadisticas` con agregados semanales: nuevas, abiertas y cerradas.
 - **Firma**: `estadisticasV2()`
 - **Precondiciones**:
   - Spreadsheet activo accesible.
   - Datos en `Tareas` y `Hecho` con columnas requeridas (ver `docs/DATA_MODEL.md`).
-  - EVIDENCIA: `f_estadisticasV2.js` → `prepararHojaEstadisticas()` → `tareas = obtenerDatosHoja("Tareas"); hechos = obtenerDatosHoja("Hecho");`.
+  - EVIDENCIA: `f_estadisticas_flujo.js` → `prepararHojaEstadisticas()` → `tareas = obtenerDatosHoja("Tareas"); hechos = obtenerDatosHoja("Hecho");`.
 - **Lecturas**:
   - `Tareas` y `Hecho` usando `getDisplayValues()` (strings).
-  - EVIDENCIA: `f_estadisticasV2.js` → `obtenerDatosHoja()` → `return rango.getDisplayValues();`.
+  - EVIDENCIA: `f_estadisticas_flujo.js` → `obtenerDatosHoja()` → `return rango.getDisplayValues();`.
 - **Transformaciones**:
   - Conteos por semana ISO (`obtenerSemanaISO`) para:
     - Nuevas: por fecha inicio (col A).
     - Cerradas: por fecha fin real (col G).
     - Abiertas: recorre semana a semana desde inicio hasta la semana actual si no hay fecha fin.
-  - EVIDENCIA: `f_estadisticasV2.js` → `contarTareasNuevas()/contarTareasCerradas()/contarTareasAbiertasPorSemana()`.
+  - EVIDENCIA: `f_estadisticas_flujo.js` → `contarTareasNuevas()/contarTareasCerradas()/contarTareasAbiertasPorSemana()`.
 - **Escrituras**:
   - Borra/crea hoja `Estadisticas`, escribe cabecera y valores desde fila 2.
   - Registra errores en `Errores_Estadisticas` (appendRow).
-  - EVIDENCIA: `f_estadisticasV2.js` → `prepararHojaEstadisticas()` → `borrarHoja()/crearHoja(3)` + `setValues([cabeceras])`; `grabarEnHjEstadisticas()` → `setValues(valores)`; `registrarError()` → `appendRow(...)`.
+  - EVIDENCIA: `f_estadisticas_flujo.js` → `prepararHojaEstadisticas()` → `borrarHoja()/crearHoja(3)` + `setValues([cabeceras])`; `grabarEnHjEstadisticas()` → `setValues(valores)`; `registrarError()` → `appendRow(...)`.
 - **Salida**: no retorna valor explícito (se basa en side-effects).
 - **Errores**:
   - Se capturan y registran en hoja `Errores_Estadisticas`; el flujo no necesariamente falla duro si se capturan internamente.
   - Riesgo: duplicación de `grabarEnHjEstadisticas` (sobrescritura).
-  - EVIDENCIA: `f_estadisticasV2.js` → `estadisticasV2()` → `catch (error) { registrarError("estadisticasV2", error); }` + definiciones duplicadas de `grabarEnHjEstadisticas`.
-- **EVIDENCIA**: `f_estadisticasV2.js` → `estadisticasV2()` → secuencia `prepararHojaEstadisticas()` → conteos → `grabarEnHjEstadisticas(valores)`.
+  - EVIDENCIA: `f_estadisticas_flujo.js` → `estadisticasV2()` → `catch (error) { registrarError("estadisticasV2", error); }` + definiciones duplicadas de `grabarEnHjEstadisticas`.
+- **EVIDENCIA**: `f_estadisticas_flujo.js` → `estadisticasV2()` → secuencia `prepararHojaEstadisticas()` → conteos → `grabarEnHjEstadisticas(valores)`.
 
 ## Flujos UI (1..6)
 
@@ -320,8 +320,8 @@ flowchart TD
 **Secuencia**:
 1) Un trigger time-based ejecuta `triggerCalculoEstadisticas()`.
    - EVIDENCIA: `f_planificador.js` → `crearTriggerCalculoEstadisticas()` → `newTrigger('triggerCalculoEstadisticas').timeBased()...create()`.
-2) `triggerCalculoEstadisticas` ejecuta `estadisticasV2()` y luego `calculoEstadisticas()`.
-   - EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `estadisticasV2(); calculoEstadisticas();`.
+2) `triggerCalculoEstadisticas` ejecuta `estadisticasV2()` y luego `ejecutarEstadisticasAnaliticas()`.
+   - EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `estadisticasV2(); ejecutarEstadisticasAnaliticas();`.
 3) Envía email con resultado.
    - EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `MailApp.sendEmail(destinatario, asunto, cuerpo)`.
 
@@ -329,13 +329,13 @@ flowchart TD
 sequenceDiagram
   participant Tr as Trigger time-based
   participant Pl as f_planificador.js
-  participant V2 as f_estadisticasV2.js
-  participant Sem as f_estadisticas.js
+  participant V2 as f_estadisticas_flujo.js
+  participant Sem as f_estadisticas_analitico.js
   participant Mail as MailApp
   Tr->>Pl: triggerCalculoEstadisticas()
   alt ejecución correcta
     Pl->>V2: estadisticasV2()
-    Pl->>Sem: calculoEstadisticas()
+    Pl->>Sem: ejecutarEstadisticasAnaliticas()
     Pl->>Mail: sendEmail(Éxito)
   else error
     Pl->>Mail: sendEmail(Error + stack)

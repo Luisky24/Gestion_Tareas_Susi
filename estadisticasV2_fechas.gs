@@ -1,6 +1,6 @@
 /**
  * Utilidades de fechas para Estadísticas V2.
- * Mantiene nombres/firmas/lógica exactamente igual que en `f_estadisticasV2.js`.
+ * Mantiene nombres/firmas/lógica exactamente igual que en `f_estadisticas_flujo.js`.
  */
 
 function obtenerAnioYSemana(fechaIN) {

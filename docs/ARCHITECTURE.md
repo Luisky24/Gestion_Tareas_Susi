@@ -32,8 +32,8 @@ flowchart TB
 
   subgraph BatchStats["Batch/Planificador (triggers y estadísticas)"]
     TRG["f_planificador.js<br/>triggerCalculoEstadisticas() / crearTriggerCalculoEstadisticas()"]
-    EV2["f_estadisticasV2.js<br/>estadisticasV2()"]
-    ESEM["f_estadisticas.js<br/>calculoEstadisticas()"]
+    EV2["f_estadisticas_flujo.js<br/>estadisticasV2()"]
+    ESEM["f_estadisticas_analitico.js<br/>ejecutarEstadisticasAnaliticas()"]
   end
 
   subgraph Data["Datos (Google Sheets)"]
@@ -82,14 +82,14 @@ EVIDENCIAS clave de capa:
 | `index.html` | UI: botones 1..6, estado UI, invocación `gestorOpciones` con `google.script.run` | N/A | `google.script.run` (cliente HTML) |
 | `Código.js` | Menú `onOpen`, sidebar, router `gestorOpciones`, CRUD y reorganización de tareas, mover finalizadas | `Tareas`, `Hecho` | `SpreadsheetApp`, `HtmlService`, `Session`, `Utilities` |
 | `f_secundarias.js` | Ordenación (`ordenarTareas`), coloreado pijama/vence (`pijama`), reubicar fila finalizada (`reubicarTareaFinalizada`), util color (`rgbToHex`) | hoja activa (implícito), `Tareas` (vía hoja activa) | `SpreadsheetApp` (implícito por hoja activa) |
-| `f_estadisticasV2.js` | Generación hoja `Estadisticas`, lectura datos de `Tareas`/`Hecho`, agregación por semana ISO, hoja de errores dedicada | `Estadisticas`, `Tareas`, `Hecho`, `Errores_Estadisticas` | `SpreadsheetApp` |
-| `f_estadisticas.js` | Resumen semanal alternativo: crea/borra `Resumen Semanal`, `Errores`; procesa 1..2 hojas de entrada | `Resumen Semanal`, `Errores`, `Tareas`, `Hecho` | `SpreadsheetApp` |
+| `f_estadisticas_flujo.js` | Generación hoja `Estadisticas`, lectura datos de `Tareas`/`Hecho`, agregación por semana ISO, hoja de errores dedicada | `Estadisticas`, `Tareas`, `Hecho`, `Errores_Estadisticas` | `SpreadsheetApp` |
+| `f_estadisticas_analitico.js` | Resumen semanal alternativo: crea/borra `Resumen Semanal`, `Errores`; procesa 1..2 hojas de entrada | `Resumen Semanal`, `Errores`, `Tareas`, `Hecho` | `SpreadsheetApp` |
 | `f_planificador.js` | Trigger time-based para ejecutar estadísticas y envío email de estado; util para listar triggers | N/A (indirecto vía funciones llamadas) | `ScriptApp`, `MailApp`, `Logger` |
 
 EVIDENCIA por archivo (ejemplos auditables):
 - EVIDENCIA: `Código.js` → `onOpen()` → `SpreadsheetApp.getUi().createMenu('Lista Tareas')...addItem('Mostrar Barar Lateral', 'mostrarBarraLateral')`.
 - EVIDENCIA: `Código.js` → `moverFinalizadas()` → lee `Tareas`, escribe `Hecho`, y borra filas en `Tareas`.
-- EVIDENCIA: `f_estadisticasV2.js` → `prepararHojaEstadisticas()` → `tareas = obtenerDatosHoja("Tareas"); hechos = obtenerDatosHoja("Hecho");`.
+- EVIDENCIA: `f_estadisticas_flujo.js` → `prepararHojaEstadisticas()` → `tareas = obtenerDatosHoja("Tareas"); hechos = obtenerDatosHoja("Hecho");`.
 
 ## Flujo end-to-end (resumen)
 
@@ -109,7 +109,7 @@ EVIDENCIA por archivo (ejemplos auditables):
 - EVIDENCIA: `Código.js` → `reorganizarTareas()` → `rngTareas.setValues(tablafinal); pijama();`.
 
 6) Batch (trigger) ejecuta estadísticas y notifica por email.
-- EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `estadisticasV2(); calculoEstadisticas(); MailApp.sendEmail(...)`.
+- EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `estadisticasV2(); ejecutarEstadisticasAnaliticas(); MailApp.sendEmail(...)`.
 
 Detalles técnicos por flujo y columnas implicadas: ver `docs/FLOWS.md` y `docs/DATA_MODEL.md`.
 
@@ -133,7 +133,7 @@ Detalles técnicos por flujo y columnas implicadas: ver `docs/FLOWS.md` y `docs/
 - EVIDENCIA: `Código.js` → `reactivarTarea()` → `throw new Error(error.message)` y `SpreadsheetApp.flush;`.
 
 3) **Duplicación de función en estadísticas v2**: `grabarEnHjEstadisticas` está declarada dos veces; la segunda sobrescribe a la primera en tiempo de carga.
-- EVIDENCIA: `f_estadisticasV2.js` → `grabarEnHjEstadisticas(valores)` → definiciones duplicadas (dos bloques con mismo nombre).
+- EVIDENCIA: `f_estadisticas_flujo.js` → `grabarEnHjEstadisticas(valores)` → definiciones duplicadas (dos bloques con mismo nombre).
 
 4) **Dependencia fuerte de tipos `Date` en celdas** en `moverFinalizadas`: usa `.getTime()` sobre `elemenIn[6]` y `elemenIn[0]`; si la hoja contiene strings (p.ej. importación o formato), fallará.
 - EVIDENCIA: `Código.js` → `moverFinalizadas()` → `claveIn = \`${elemenIn[6].getTime()}|${elemenIn[1]}|${elemenIn[0].getTime()}\``.

@@ -17,7 +17,7 @@
 | **UI sin cambios / botones no responden** | Sidebar no cargado o `google.script.run` falla por permisos/autorización; botón deshabilitado por estado no restaurado | 1) Reabrir sidebar desde menú “Lista Tareas” 2) Revisar consola del navegador (si aplica) y “Ejecuciones” en Apps Script 3) Confirmar que `index.html` se está sirviendo (`mostrarBarraLateral`) | Reautorizar script al ejecutar `mostrarBarraLateral()`/cualquier función desde editor GAS; recargar spreadsheet |
 
 Notas de evidencia:
-- EVIDENCIA: `f_estadisticasV2.js` → `convertirAFecha(str)` → parseo `dd/MM/yyyy` con `split("/")`.
+- EVIDENCIA: `f_estadisticas_flujo.js` → `convertirAFecha(str)` → parseo `dd/MM/yyyy` con `split("/")`.
 - EVIDENCIA: `f_planificador.js` → `listarTriggersActivosLogger()` → enumeración de triggers en `Logger`.
 - EVIDENCIA: `Código.js` → `moverFinalizadas()` → clave `\`${elemenIn[6].getTime()}|${elemenIn[1]}|${elemenIn[0].getTime()}\``.
 - EVIDENCIA: `index.html` → `google.script.run.withSuccessHandler((error) => updateStatus('Proceso completado.'))` (no usa retorno).
@@ -29,9 +29,9 @@ Notas de evidencia:
 1. Revisar ejecuciones del proyecto en Apps Script (stacktraces y permisos).
    - EVIDENCIA: `appsscript.json` → `exceptionLogging: "STACKDRIVER"` (registro de excepciones).
 2. Para `estadisticasV2`, revisar hoja `Errores_Estadisticas`.
-   - EVIDENCIA: `f_estadisticasV2.js` → `registrarError()` → crea/inserta `Errores_Estadisticas` y hace `appendRow(...)`.
-3. Para `calculoEstadisticas` (resumen semanal), revisar hoja `Errores`.
-   - EVIDENCIA: `f_estadisticas.js` → `procesarResumenPorFechaFin()` → crea/limpia `Errores` y añade filas con mensaje.
+   - EVIDENCIA: `f_estadisticas_flujo.js` → `registrarError()` → crea/inserta `Errores_Estadisticas` y hace `appendRow(...)`.
+3. Para `ejecutarEstadisticasAnaliticas` (resumen semanal), revisar hoja `Errores`.
+   - EVIDENCIA: `f_estadisticas_analitico.js` → `procesarResumenPorFechaFin()` → crea/limpia `Errores` y añade filas con mensaje.
 
 ### 2) Verificar selección activa y rango (flujos UI 2/4/3)
 
@@ -65,6 +65,6 @@ Estos puntos pueden cambiar la forma en que se manifiesta un error (p.ej. “err
 - `reactivarTarea` y `moverFinalizadas` tienen inconsistencias similares en `catch`.
   - EVIDENCIA: `Código.js` → `reactivarTarea()` → `throw new Error(error.message)` dentro de `catch (err)`.
   - EVIDENCIA: `Código.js` → `moverFinalizadas()` → `catch (err) { throw new Error(error.message); }`.
-- `f_estadisticasV2.js` define `grabarEnHjEstadisticas` dos veces (sobrescritura).
-  - EVIDENCIA: `f_estadisticasV2.js` → `grabarEnHjEstadisticas(valores)` → definiciones duplicadas.
+- `f_estadisticas_flujo.js` define `grabarEnHjEstadisticas` dos veces (sobrescritura).
+  - EVIDENCIA: `f_estadisticas_flujo.js` → `grabarEnHjEstadisticas(valores)` → definiciones duplicadas.
 

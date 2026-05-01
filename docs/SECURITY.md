@@ -11,7 +11,7 @@ El conjunto de APIs usadas determina el “scope” requerido por el script al a
 
 | API | Uso en código | Riesgo principal | Evidencia |
 |---|---|---|---|
-| `SpreadsheetApp` | Lectura/escritura/borrado de filas, rangos, colores, creación/borrado de hojas | Integridad: borrados masivos (`deleteRows`, `deleteSheet`) y reescritura total (`setValues`) | EVIDENCIA: `Código.js` → `moverFinalizadas()` → `hjTareas.deleteRows(...)`; EVIDENCIA: `f_estadisticasV2.js` → `borrarHoja()` → `libro.deleteSheet(hoja)` |
+| `SpreadsheetApp` | Lectura/escritura/borrado de filas, rangos, colores, creación/borrado de hojas | Integridad: borrados masivos (`deleteRows`, `deleteSheet`) y reescritura total (`setValues`) | EVIDENCIA: `Código.js` → `moverFinalizadas()` → `hjTareas.deleteRows(...)`; EVIDENCIA: `f_estadisticas_flujo.js` → `borrarHoja()` → `libro.deleteSheet(hoja)` |
 | `HtmlService` | Renderiza sidebar desde `index.html` | UI puede disparar acciones destructivas si el usuario autorizado las ejecuta | EVIDENCIA: `Código.js` → `mostrarBarraLateral()` → `HtmlService.createHtmlOutputFromFile('index')` |
 | `ScriptApp` | Crea/borra/lista triggers del proyecto | Persistencia de ejecución automática; riesgo de duplicación o ejecución en horarios no esperados | EVIDENCIA: `f_planificador.js` → `crearTriggerCalculoEstadisticas()` → `getProjectTriggers()` + `deleteTrigger(...)` + `newTrigger(...).create()` |
 | `MailApp` | Envía email de éxito/error del batch | Confidencialidad: exposición de stacktrace por email; envío a destinatario hardcodeado | EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `MailApp.sendEmail(destinatario, asunto, cuerpo)` |
@@ -35,12 +35,12 @@ Interpretación operativa (verificable):
 
 ### Riesgos
 
-- **Ejecución automática**: `triggerCalculoEstadisticas` ejecuta `estadisticasV2` y `calculoEstadisticas` y luego envía email, con potencial de:
+- **Ejecución automática**: `triggerCalculoEstadisticas` ejecuta `estadisticasV2` y `ejecutarEstadisticasAnaliticas` y luego envía email, con potencial de:
   - Borrado/creación de hojas (`Estadisticas`, `Errores`, `Resumen Semanal`).
   - Envío de stacktrace por email.
-  - EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `estadisticasV2(); calculoEstadisticas(); MailApp.sendEmail(...)`.
-  - EVIDENCIA: `f_estadisticasV2.js` → `prepararHojaEstadisticas()` → `borrarHoja()`/`crearHoja()`.
-  - EVIDENCIA: `f_estadisticas.js` → `procesarResumenPorFechaFin()` → `hojaErrores.clearContents(); hojaResumen.clearContents();`.
+  - EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `estadisticasV2(); ejecutarEstadisticasAnaliticas(); MailApp.sendEmail(...)`.
+  - EVIDENCIA: `f_estadisticas_flujo.js` → `prepararHojaEstadisticas()` → `borrarHoja()`/`crearHoja()`.
+  - EVIDENCIA: `f_estadisticas_analitico.js` → `procesarResumenPorFechaFin()` → `hojaErrores.clearContents(); hojaResumen.clearContents();`.
 
 ### Control implementado en repo
 
@@ -79,7 +79,7 @@ Riesgo:
 - **Errores silenciosos/encadenados por variables mal nombradas en `catch`** (`finalizarTarea`, `reactivarTarea`, `moverFinalizadas`).
   - EVIDENCIA: `Código.js` → `finalizarTarea()`/`reactivarTarea()`/`moverFinalizadas()` → bloques `catch` con variables inconsistentes.
 - **Dependencia de formato `dd/MM/yyyy` en estadísticas v2**.
-  - EVIDENCIA: `f_estadisticasV2.js` → `convertirAFecha(str)` → split por `/`.
+  - EVIDENCIA: `f_estadisticas_flujo.js` → `convertirAFecha(str)` → split por `/`.
 - **Destinatario hardcodeado** en email.
   - EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `const destinatario = "luiskycv24@gmail.com";`.
 

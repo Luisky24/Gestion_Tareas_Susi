@@ -38,16 +38,12 @@ Prohibido en estas capas:
 
 ## 3. Reglas de negocio centralizadas
 
-- **NO** usar comparaciones directas como:
-  - `estado === "hecho"`
-- **SIEMPRE** usar:
-  - `esTareaHecha()`
-  - `esTareaAbierta()`
+- **NO** dispersar reglas de negocio en múltiples sitios.
+- **SIEMPRE** concentrar las reglas en funciones utilitarias del módulo correspondiente.
 
-Regla:
-- Si `esTareaHecha` → tarea cerrada
-- Si `esTareaAbierta` → tarea abierta
-- Ignorar ambigüedades
+Regla actual (V2):
+- En estadísticas V2, una tarea se considera **cerrada** si `Fecha fin real` (columna G / índice 6) no está vacía.
+- En estadísticas V2, una tarea se considera **abierta** si `Fecha fin real` está vacía.
 
 ---
 
@@ -56,14 +52,16 @@ Regla:
 - **NO** usar strings hardcodeados para:
   - nombres de hojas
   - estados
-- **SIEMPRE** usar `CONFIG_ESTADISTICAS`
+- **SIEMPRE** centralizar estos valores en constantes del módulo (p.ej. `nombreHoja`, `cabeceras`) o en un único archivo de configuración del proyecto.
 
 ---
 
 ## 5. Mapeo de columnas
 
-- **NO** usar índices fijos (`valores[0]`, `valores[2]`, etc.).
-- **SIEMPRE** usar el **mapeo dinámico de columnas** (cabecera de hoja → índices por nombre).
+- Si se usan **índices fijos**, deben estar:
+  - documentados (modelo de datos)
+  - agrupados como constantes `IDX_*` cerca de su uso
+- Si se necesita robustez ante cambios de cabecera, usar mapeo por nombres.
 
 ---
 
@@ -92,4 +90,26 @@ Al añadir nuevas funcionalidades:
 - usar nombres en español
 - descriptivos
 - coherentes con el resto del sistema
+
+---
+
+## 9. Arquitectura de estadísticas (anti-versiones paralelas)
+
+### Punto único de entrada
+
+- **SOLO** puede existir un entrypoint público para estadísticas:
+  - `ejecutarEstadisticasDelSistema()`
+- **PROHIBIDO** llamar desde otros módulos a funciones internas de estadísticas (por ejemplo: `estadisticasV2()` o `ejecutarEstadisticasAnaliticas()`).
+
+### Evolución sin duplicidades
+
+- **PROHIBIDO** crear versiones paralelas de estadísticas mediante:
+  - archivos o funciones con sufijos/patrones: `V1`, `V2`, `V3`, `V4`, `version`, `legacy`, `old`
+- Toda evolución debe hacerse:
+  - sobre el motor actual (lógica existente)
+  - o mediante feature flags (mismos nombres públicos, comportamiento controlado por flags)
+
+### Regla de revisión (obligatoria)
+
+- Si en un cambio aparecen nuevos símbolos/archivos con los patrones anteriores, el cambio debe rechazarse salvo justificación excepcional documentada.
 
