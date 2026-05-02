@@ -9,6 +9,9 @@
  *   - Tareas Nuevas
  *   - Tareas Abiertas
  *   - Tareas Cerradas
+ *   - Tareas Abiertas Históricas (abierta en W si alta antes del lunes siguiente ISO UTC y fin ausente o no antes de ese límite)
+ *   - SemanaLabel (`WW/YYYY`) y gráfico de líneas en la misma hoja (tras cada escritura)
+ *   - Orden filas configurable (`ScriptProperties` `ESTADISTICAS_ORDEN`: `ASC`|`DESC`, defecto `DESC`); menú «alternar orden»
  *
  * **Relación con el sistema analítico (legacy)**
  * - Este módulo prioriza un agregado simple y estable (operación/monitorización).
@@ -50,7 +53,15 @@ function _statsV2_buildCtx_() {
     libro,
     nombreHoja,
     hoja: libro.getSheetByName(nombreHoja),
-    cabeceras: ["Año", "Semana", "Tareas Nuevas", "Tareas Abiertas", "Tareas Cerradas"],
+    cabeceras: [
+      "Año",
+      "Semana",
+      "Tareas Nuevas",
+      "Tareas Abiertas",
+      "Tareas Cerradas",
+      "Tareas Abiertas Históricas",
+      "SemanaLabel",
+    ],
     tareas: [],
     hechos: [],
   };
@@ -59,6 +70,30 @@ function _statsV2_buildCtx_() {
 // Único motor de estadísticas soportado actualmente.
 // Prohibido crear V3/V4 en paralelo: cualquier evolución debe hacerse sobre este motor o mediante feature flags.
 const MOTOR_ESTADISTICAS = "V2";
+
+/** ScriptProperties: orden filas hoja Estadísticas (`ASC` | `DESC`). Por defecto `DESC` si no existe. */
+const ESTADISTICAS_ORDEN_KEY = "ESTADISTICAS_ORDEN";
+
+function _obtenerOrdenEstadisticas() {
+  const v = PropertiesService.getScriptProperties().getProperty(ESTADISTICAS_ORDEN_KEY);
+  return v === "ASC" ? "ASC" : "DESC";
+}
+
+/**
+ * Alterna orden ASC/DESC por año+semana, guarda en ScriptProperties y regenera estadísticas V2.
+ * Menú: Lista Tareas → Estadísticas: alternar orden ASC/DESC
+ */
+function toggleOrdenEstadisticas() {
+  const props = PropertiesService.getScriptProperties();
+  const siguiente = _obtenerOrdenEstadisticas() === "ASC" ? "DESC" : "ASC";
+  props.setProperty(ESTADISTICAS_ORDEN_KEY, siguiente);
+  ejecutarEstadisticasFlujo();
+  SpreadsheetApp.getUi().alert(
+    "Orden tabla Estadísticas: " +
+      siguiente +
+      " (año y semana ISO).\nSe ha vuelto a generar la hoja y el gráfico."
+  );
+}
 
 /**
  * Punto único de entrada para estadísticas.
@@ -90,7 +125,14 @@ function _estadisticasV2() {
     // Versión optimizada (deltas + prefijo). Validada contra versión original.
     let contadorAbiertas = _contarTareasAbiertasPorSemana(ctx);
 
-    let nuevasAbiertasCerradas = _unirNuevasAbiertasCerradas(contadorNuevas, contadorCerradas, contadorAbiertas);
+    let contadorAbiertasHistoricas = _contarTareasAbiertasHistoricasPorSemana(ctx);
+
+    let nuevasAbiertasCerradas = _unirNuevasAbiertasCerradas(
+      contadorNuevas,
+      contadorCerradas,
+      contadorAbiertas,
+      contadorAbiertasHistoricas
+    );
 
     nuevasAbiertasCerradas = _ordenarAbiertasCerradas(nuevasAbiertasCerradas);
 
@@ -107,6 +149,27 @@ function _estadisticasV2() {
 }
 
 /**
+ * Lunes 00:00 UTC del inicio de la semana ISO (año ISO `anio`, número `semana`).
+ * Misma construcción que antes en `_siguienteSemanaISO` / `_contarTareasAbiertasPorSemana`.
+ *
+ * @param {number} anio
+ * @param {number} semana
+ * @returns {Date}
+ */
+function _isoWeekToMondayUTC(anio, semana) {
+  const y = Number(anio);
+  const w = Number(semana);
+  const jan4 = new Date(Date.UTC(y, 0, 4));
+  const dayNum = jan4.getUTCDay() || 7;
+  const mondayWeek1 = new Date(jan4);
+  mondayWeek1.setUTCDate(jan4.getUTCDate() - (dayNum - 1));
+
+  const mondayTarget = new Date(mondayWeek1);
+  mondayTarget.setUTCDate(mondayWeek1.getUTCDate() + (w - 1) * 7);
+  return mondayTarget;
+}
+
+/**
  * Devuelve la semana ISO siguiente a la (anio, semana) dada.
  * Mantiene el mismo criterio ISO que `obtenerSemanaISO()` (UTC, jueves de referencia).
  *
@@ -115,20 +178,7 @@ function _estadisticasV2() {
  * @returns {{anno:number, semana:number}}
  */
 function _siguienteSemanaISO(anio, semana) {
-  // Convertir (anio, semana ISO) -> fecha (lunes de esa semana), luego +7 días y recalcular ISO.
-  const isoWeekToDateMonday = (y, w) => {
-    // Algoritmo estándar: la semana 1 ISO es la que contiene el 4 de enero.
-    const jan4 = new Date(Date.UTC(y, 0, 4));
-    const dayNum = jan4.getUTCDay() || 7; // 1..7 (lunes..domingo)
-    const mondayWeek1 = new Date(jan4);
-    mondayWeek1.setUTCDate(jan4.getUTCDate() - (dayNum - 1));
-
-    const mondayTarget = new Date(mondayWeek1);
-    mondayTarget.setUTCDate(mondayWeek1.getUTCDate() + (w - 1) * 7);
-    return mondayTarget;
-  };
-
-  const monday = isoWeekToDateMonday(Number(anio), Number(semana));
+  const monday = _isoWeekToMondayUTC(anio, semana);
   const next = new Date(monday);
   next.setUTCDate(monday.getUTCDate() + 7);
 
@@ -136,18 +186,100 @@ function _siguienteSemanaISO(anio, semana) {
 }
 
 /**
+ * «Abiertas históricas»: para cada semana ISO W (clave anno||semana), número de tareas en Tareas∪Hecho abiertas
+ * durante W según: fechaAlta estrictamente antes del lunes 00:00 UTC de la semana ISO siguiente a W, y
+ * (sin fecha fin real o fecha fin real en o después de ese mismo instante).
+ * Rango: desde la primera semana con alguna fecha válida (alta o fin) hasta la misma semana actual que V2 abiertas.
+ *
+ * @param {object} ctx contexto V2 (`prepararHojaEstadisticas` ya cargó `tareas` y `hechos`)
+ * @returns {Map<string, number>}
+ */
+function _contarTareasAbiertasHistoricasPorSemana(ctx) {
+  const IDX_FECHA_INICIO = TASK_COLUMNS.FECHA_ALTA.idx;
+  const IDX_FECHA_FIN = TASK_COLUMNS.FECHA_FIN_REAL.idx;
+
+  const fechaParaISO = (valor) => (typeof valor === "string" ? convertirAFecha(valor) : valor);
+
+  const ywToAbs_ = (yw) => _isoWeekToMondayUTC(yw.anno, yw.semana).getTime();
+
+  const union = [...ctx.tareas, ...ctx.hechos];
+  /** @type {{ altaUtc: number, finUtc: number|null }[]} */
+  const parsed = [];
+  let ywMin = null;
+
+  for (const row of union) {
+    const alta = fechaParaISO(row[IDX_FECHA_INICIO]);
+    if (!(alta instanceof Date) || isNaN(alta.getTime())) continue;
+
+    const finRaw = row[IDX_FECHA_FIN];
+    let finUtc = null;
+    let finDate = null;
+    if (finRaw != null && finRaw.toString().trim() !== "") {
+      finDate = fechaParaISO(finRaw);
+      if (!(finDate instanceof Date) || isNaN(finDate.getTime())) continue;
+      finUtc = Date.UTC(finDate.getFullYear(), finDate.getMonth(), finDate.getDate());
+    }
+
+    const altaUtc = Date.UTC(alta.getFullYear(), alta.getMonth(), alta.getDate());
+    parsed.push({ altaUtc, finUtc });
+
+    const ywAlta = obtenerAnioYSemana(alta);
+    if (ywMin === null || ywToAbs_(ywAlta) < ywToAbs_(ywMin)) {
+      ywMin = { anno: ywAlta.anno, semana: ywAlta.semana };
+    }
+    if (finUtc !== null && finDate) {
+      const ywFin = obtenerAnioYSemana(finDate);
+      if (ywMin === null || ywToAbs_(ywFin) < ywToAbs_(ywMin)) {
+        ywMin = { anno: ywFin.anno, semana: ywFin.semana };
+      }
+    }
+  }
+
+  if (ywMin === null || parsed.length === 0) return new Map();
+
+  const hoy = new Date();
+  const ultimoDiaSemanaHoy = ultimoDiaSemana(hoy);
+  const ywActual = obtenerAnioYSemana(ultimoDiaSemanaHoy);
+  const absActual = ywToAbs_(ywActual);
+
+  const resultado = new Map();
+  let ywCursor = { anno: ywMin.anno, semana: ywMin.semana };
+
+  for (let guard = 0; guard < 6000; guard++) {
+    const ywSig = _siguienteSemanaISO(ywCursor.anno, ywCursor.semana);
+    const inicioSemanaSiguienteMs = _isoWeekToMondayUTC(ywSig.anno, ywSig.semana).getTime();
+    let cnt = 0;
+    for (let i = 0; i < parsed.length; i++) {
+      const p = parsed[i];
+      if (
+        p.altaUtc < inicioSemanaSiguienteMs &&
+        (p.finUtc === null || p.finUtc >= inicioSemanaSiguienteMs)
+      ) {
+        cnt++;
+      }
+    }
+    resultado.set(`${ywCursor.anno}||${ywCursor.semana}`, cnt);
+
+    if (ywToAbs_(ywCursor) >= absActual) break;
+    ywCursor = _siguienteSemanaISO(ywCursor.anno, ywCursor.semana);
+  }
+
+  return resultado;
+}
+
+/**
  * Implementación final (optimizada) de abiertas por semana.
  * Usa deltas + suma prefija enumerando semanas ISO explícitas (evita setDate(+7)).
  *
  * Regla V2:
- * - Una tarea está "abierta" si `Fecha fin real` (columna G / índice 6) está vacía.
+ * - Una tarea está "abierta" si la fecha fin real (TASK_COLUMNS.FECHA_FIN_REAL) está vacía.
  *
  * @returns {Map<string, number>}
  */
 function _contarTareasAbiertasPorSemana(ctx) {
   // Índices del modelo de datos (filas leídas con getDisplayValues)
-  const IDX_FECHA_INICIO = 0;
-  const IDX_FECHA_FIN = 6;
+  const IDX_FECHA_INICIO = TASK_COLUMNS.FECHA_ALTA.idx;
+  const IDX_FECHA_FIN = TASK_COLUMNS.FECHA_FIN_REAL.idx;
 
   const deltas = new Map(); // claveSemana -> delta (+1 inicio, -1 fin+1)
 
@@ -167,18 +299,7 @@ function _contarTareasAbiertasPorSemana(ctx) {
   // Para construir la secuencia de semanas continuas, necesitamos la semana ISO mínima de inicio válida.
   let ywMin = null;
 
-  const isoWeekToDateMondayUTC_ = (y, w) => {
-    const jan4 = new Date(Date.UTC(y, 0, 4));
-    const dayNum = jan4.getUTCDay() || 7;
-    const mondayWeek1 = new Date(jan4);
-    mondayWeek1.setUTCDate(jan4.getUTCDate() - (dayNum - 1));
-
-    const mondayTarget = new Date(mondayWeek1);
-    mondayTarget.setUTCDate(mondayWeek1.getUTCDate() + (w - 1) * 7);
-    return mondayTarget;
-  };
-
-  const ywToAbs_ = (yw) => isoWeekToDateMondayUTC_(Number(yw.anno), Number(yw.semana)).getTime();
+  const ywToAbs_ = (yw) => _isoWeekToMondayUTC(yw.anno, yw.semana).getTime();
 
   for (const tarea of ctx.tareas) {
     const fechaInicioStr = tarea[IDX_FECHA_INICIO];
@@ -230,8 +351,8 @@ function _contarTareasAbiertasPorSemana(ctx) {
  */
 function _contarTareasNuevasYCerradas(ctx) {
   // Índices del modelo de datos (filas leídas con getDisplayValues)
-  const IDX_FECHA_INICIO = 0;
-  const IDX_FECHA_FIN = 6;
+  const IDX_FECHA_INICIO = TASK_COLUMNS.FECHA_ALTA.idx;
+  const IDX_FECHA_FIN = TASK_COLUMNS.FECHA_FIN_REAL.idx;
 
   const nuevas = new Map();
   const cerradas = new Map();
@@ -276,16 +397,21 @@ function _formatearDatos(nuevasAbiertasCerradas) {
     const valores = nuevasAbiertasCerradas.map(obj => {
       try {
         const [anio, semana] = obj.CampoClave.split('||');
+        const y = Number(anio);
+        const w = Number(semana);
+        const semanaLabel = `${String(w).padStart(2, '0')}/${y}`;
         return [
-          Number(anio),
-          Number(semana),
+          y,
+          w,
           obj.Nuevas || 0,
           obj.Abiertas || 0,
-          obj.Cerradas || 0
+          obj.Cerradas || 0,
+          obj.AbiertasHistoricas || 0,
+          semanaLabel,
         ];
       } catch (error) {
         registrarError("estadisticasV2.map", error);
-        return [0, 0, 0, 0, 0];
+        return [0, 0, 0, 0, 0, 0, ''];
       }
     });
 
@@ -300,17 +426,16 @@ function _formatearDatos(nuevasAbiertasCerradas) {
 
 function _ordenarAbiertasCerradas(nuevasAbiertasCerradas) {
 
-  nuevasAbiertasCerradas.sort((a,b)=>{
-    
-    const [ay, am] = a.CampoClave.split("||").map(x => Number(x.trim()));
-    const [by, bm] = b.CampoClave.split("||").map(x => Number(x.trim()));
+  const orden = _obtenerOrdenEstadisticas();
+  const factor = orden === "ASC" ? 1 : -1;
 
-    // Primero por año descendente
-    if (ay !== by) return by - ay;
+  nuevasAbiertasCerradas.sort((a, b) => {
+    const [ay, am] = a.CampoClave.split("||").map((x) => Number(x.trim()));
+    const [by, bm] = b.CampoClave.split("||").map((x) => Number(x.trim()));
 
-    // Luego por mes/semana descendente
-    return bm - am;
+    if (ay !== by) return factor * (ay - by);
 
+    return factor * (am - bm);
   });
 
   return nuevasAbiertasCerradas;
@@ -318,10 +443,15 @@ function _ordenarAbiertasCerradas(nuevasAbiertasCerradas) {
 }
 
 
-function _unirNuevasAbiertasCerradas(nuevas, cerradas, abiertas) {
+function _unirNuevasAbiertasCerradas(nuevas, cerradas, abiertas, abiertasHistoricas) {
 
   // Unimos y obtenemos una sola clave para ambas estructuras
-  let claves = new Set([...nuevas.keys(), ...cerradas.keys(), ...abiertas.keys()]);
+  let claves = new Set([
+    ...nuevas.keys(),
+    ...cerradas.keys(),
+    ...abiertas.keys(),
+    ...(abiertasHistoricas ? abiertasHistoricas.keys() : []),
+  ]);
 
   // Por cada clave verificamos si existe en abiertas y cerradas y si existe añadimos o ponemos cerro en un
   // array que porcada elmento tiene la estructura clave, vloa abiertas, valor cerradas
@@ -330,8 +460,15 @@ function _unirNuevasAbiertasCerradas(nuevas, cerradas, abiertas) {
     const valorNuevas = nuevas.get(clave) ?? 0;
     const valorCerrada = cerradas.get(clave) ?? 0;
     const valorAbiertas = abiertas.get(clave) ?? 0;
+    const valorAbiertasHistoricas = abiertasHistoricas ? (abiertasHistoricas.get(clave) ?? 0) : 0;
 
-    resultado.push({ ['CampoClave']: clave, ['Nuevas']: valorNuevas, ['Abiertas']: valorAbiertas, ['Cerradas']: valorCerrada });
+    resultado.push({
+      ['CampoClave']: clave,
+      ['Nuevas']: valorNuevas,
+      ['Abiertas']: valorAbiertas,
+      ['Cerradas']: valorCerrada,
+      ['AbiertasHistoricas']: valorAbiertasHistoricas,
+    });
 
   }
 
@@ -343,7 +480,7 @@ function _unirNuevasAbiertasCerradas(nuevas, cerradas, abiertas) {
 
 function _contarTareasCerradas() {
   // Índice del modelo de datos (fecha fin real)
-  const IDX_FECHA_FIN = 6;
+  const IDX_FECHA_FIN = TASK_COLUMNS.FECHA_FIN_REAL.idx;
 
   let mapa1 = new Map();
 
@@ -394,8 +531,8 @@ function _contarTareasNuevas() {
 
 function _contarXTipo(mapa, valores, tipo) {
   // Índices del modelo de datos (fecha alta / fecha fin real)
-  const IDX_FECHA_INICIO = 0;
-  const IDX_FECHA_FIN = 6;
+  const IDX_FECHA_INICIO = TASK_COLUMNS.FECHA_ALTA.idx;
+  const IDX_FECHA_FIN = TASK_COLUMNS.FECHA_FIN_REAL.idx;
 
   valores.forEach(ele => {
 

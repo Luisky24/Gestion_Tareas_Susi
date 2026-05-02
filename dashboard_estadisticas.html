@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <base target="_top">
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #eef1f5;
+      color: #1f2937;
+    }
+
+    .dashboard-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px 20px 36px;
+      box-sizing: border-box;
+    }
+
+    .cabecera-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .dashboard-title {
+      margin: 0;
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    #btnAyuda {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid #c5cad3;
+      background: #fff;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    #btnAyuda:hover {
+      background: #f4f5f7;
+    }
+
+    .selector-vista {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .selector-vista button {
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: 1px solid #c5cad3;
+      background: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .selector-vista button:hover {
+      background: #f4f5f7;
+    }
+
+    .selector-vista button.active {
+      background: #3d5a80;
+      color: #fff;
+      border-color: #3d5a80;
+    }
+
+    .dashboard-section {
+      margin-top: 28px;
+    }
+
+    .dashboard-section--first {
+      margin-top: 22px;
+    }
+
+    .section-heading {
+      margin: 0 0 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #5c6370;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .estado-box {
+      padding: 28px 26px;
+      border-radius: 12px;
+      text-align: center;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .estado-titulo {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .estado-sub {
+      margin-top: 10px;
+      font-size: 0.95rem;
+      color: #5c6370;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    #estadoScore {
+      font-size: 20px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    #estadoTendenciaGlobal {
+      margin-top: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    #estadoRecomendacion {
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    .estado-critico {
+      background: #fdecec;
+      border-color: #f5c4c4;
+    }
+
+    .estado-alerta {
+      background: #fff4e8;
+      border-color: #f5d4ae;
+    }
+
+    .estado-ok {
+      background: #e8f7ee;
+      border-color: #bbe8cc;
+    }
+
+    .kpi-semana-linea {
+      margin: 0 0 16px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .kpis-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .kpi-card {
+      flex: 1 1 calc(33.333% - 10px);
+      min-width: 148px;
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px 16px;
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.07);
+      border: 1px solid #e4e7ec;
+      box-sizing: border-box;
+    }
+
+    .kpi-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #6b7280;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+
+    .kpi-stack {
+      text-align: center;
+    }
+
+    .kpi-value-main {
+      font-size: 1.65rem;
+      font-weight: 700;
+      color: #111827;
+      line-height: 1.2;
+    }
+
+    .kpi-value-delta {
+      margin-top: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .kpi-value-delta.kpi-up {
+      color: #188038;
+    }
+
+    .kpi-value-delta.kpi-down {
+      color: #c5221f;
+    }
+
+    .kpi-value-delta.kpi-flat {
+      color: #5f6368;
+    }
+
+    .prediccion-container {
+      margin-top: 6px;
+      padding: 16px 18px;
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      font-size: 0.95rem;
+      line-height: 1.65;
+      color: #374151;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+
+    .prediccion-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .prediccion-row:last-of-type {
+      margin-bottom: 0;
+    }
+
+    .prediccion-msg {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #e2e8f0;
+      font-weight: 600;
+    }
+
+    .prediccion-msg--sube {
+      color: #c5221f;
+    }
+
+    .prediccion-msg--baja {
+      color: #188038;
+    }
+
+    .prediccion-msg--estable {
+      color: #5f6368;
+    }
+
+    .alertas-container {
+      margin-top: 6px;
+    }
+
+    .alerta {
+      padding: 11px 14px;
+      margin: 11px 0;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      line-height: 1.45;
+      border-left: 4px solid;
+    }
+
+    .alerta-roja {
+      background: #fdf2f2;
+      border-left-color: #c44747;
+    }
+
+    .alerta-naranja {
+      background: #fff8ed;
+      border-left-color: #d97706;
+    }
+
+    .alerta-neutral {
+      background: #f4f5f7;
+      border-left-color: #9ca3af;
+      color: #6b7280;
+    }
+
+    #insightsContainer {
+      margin-top: 6px;
+    }
+
+    .insight-card {
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #fff;
+      border-radius: 4px;
+      border: 1px solid #e4e7ec;
+      border-left: 4px solid #3d5a80;
+    }
+
+    .insight-texto {
+      font-weight: bold;
+    }
+
+    .insight-rec {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #555;
+    }
+
+    .insight-placeholder {
+      font-size: 0.95rem;
+      color: #4b5563;
+    }
+
+    /* Vista gráfico (toolbar alineado con grafica_estadisticas.html) */
+    #graficoView {
+      margin-top: 8px;
+    }
+
+    #graficoView .chart-section-inner {
+      margin-top: 18px;
+    }
+
+    #toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px 18px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #dadce0;
+    }
+
+    #toolbar label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    #toolbar select {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #dadce0;
+      font-size: 13px;
+    }
+
+    #btnReset {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid #dadce0;
+      background: #fff;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    #btnReset:hover {
+      background: #f1f3f4;
+    }
+
+    #rangoIndicador {
+      font-size: 13px;
+      color: #5f6368;
+      margin-bottom: 8px;
+      min-height: 1.35em;
+    }
+
+    #errGrafico {
+      color: #b45353;
+      font-size: 0.875rem;
+      margin-bottom: 8px;
+      min-height: 1.25em;
+    }
+
+    #chart_wrap {
+      margin-top: 6px;
+      background: #fff;
+      border-radius: 10px;
+      padding: 14px;
+      border: 1px solid #e4e7ec;
+      box-sizing: border-box;
+    }
+
+    #chart_div {
+      width: 100%;
+      min-height: 400px;
+    }
+
+    #guiaView {
+      display: none;
+      margin-top: 12px;
+      padding: 4px 0 12px;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    #guiaView .guia-volver {
+      display: inline-block;
+      margin-bottom: 14px;
+      padding: 8px 12px;
+      border: none;
+      background: transparent;
+      color: #3d5a80;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    #guiaView .guia-volver:hover {
+      text-decoration: underline;
+    }
+
+    #guiaView .guia-titulo-principal {
+      margin: 0 0 16px;
+      font-size: 1.35rem;
+      color: #111827;
+    }
+
+    #guiaView .manual-seccion {
+      margin-bottom: 20px;
+      padding: 15px;
+      border-left: 4px solid #3d5a80;
+      background: #f8f9fa;
+      border-radius: 4px;
+    }
+
+    #guiaView .manual-seccion h2 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      color: #374151;
+    }
+
+    #guiaView .manual-seccion ul {
+      margin: 8px 0 0;
+      padding-left: 1.2rem;
+    }
+
+    #guiaView .manual-seccion li {
+      margin: 6px 0;
+    }
+
+    #guiaView .ejemplo {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #eef1f4;
+      border-radius: 8px;
+      font-family: ui-monospace, monospace;
+      font-size: 13px;
+      color: #4b5563;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="dashboard-container">
+    <div class="cabecera-row">
+      <h1 id="tituloVista" class="dashboard-title">📊 Dashboard de estadísticas</h1>
+      <button type="button" id="btnAyuda">📘 Ver guía</button>
+    </div>
+
+    <div class="selector-vista">
+      <button type="button" id="btnDashboard" class="active">📊 Dashboard</button>
+      <button type="button" id="btnGrafico">📈 Gráfico</button>
+    </div>
+
+    <div id="dashboardView">
+      <section id="bloqueEstado" class="dashboard-section dashboard-section--first">
+        <h2 class="section-heading">Estado del sistema</h2>
+        <div id="estadoBox" class="estado-box estado-ok">
+          <div id="estadoTitulo" class="estado-titulo">—</div>
+          <div id="estadoSub" class="estado-sub"></div>
+          <div id="estadoScore"></div>
+          <div id="estadoTendenciaGlobal"></div>
+          <div id="estadoRecomendacion"></div>
+        </div>
+      </section>
+
+      <section id="bloqueKpis" class="dashboard-section">
+        <h2 class="section-heading">KPIs (última semana)</h2>
+        <p id="kpiSemanaLinea" class="kpi-semana-linea"></p>
+        <div class="kpis-container">
+          <div class="kpi-card">
+            <div class="kpi-title">🟢 NUEVAS</div>
+            <div class="kpi-stack" id="kpiNuevas">
+              <div class="kpi-value-main">—</div>
+              <div class="kpi-value-delta"></div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title">🔵 CERRADAS</div>
+            <div class="kpi-stack" id="kpiCerradas">
+              <div class="kpi-value-main">—</div>
+              <div class="kpi-value-delta"></div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title">📊 HISTÓRICO (ABIERTAS)</div>
+            <div class="kpi-stack" id="kpiHistorico">
+              <div class="kpi-value-main">—</div>
+              <div class="kpi-value-delta"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="bloquePrediccion" class="dashboard-section">
+        <h2 class="section-heading">🔮 Predicción próxima semana</h2>
+        <div id="prediccionContainer" class="prediccion-container"></div>
+      </section>
+
+      <section id="bloqueAlertas" class="dashboard-section">
+        <h2 class="section-heading">Alertas</h2>
+        <div id="alertasContainer" class="alertas-container"></div>
+      </section>
+
+      <section id="bloqueInsights" class="dashboard-section">
+        <h2 class="section-heading">💡 Insights</h2>
+        <div id="insightsContainer"></div>
+      </section>
+    </div>
+
+    <div id="graficoView" style="display:none;">
+      <div class="chart-section-inner">
+        <h2 class="section-heading">Evolución semanal</h2>
+        <div id="errGrafico"></div>
+
+        <div id="toolbar">
+          <span style="font-weight:600;">Series:</span>
+          <label><input type="checkbox" id="chkNuevas"> Nuevas</label>
+          <label><input type="checkbox" id="chkAbiertas"> Abiertas (Actual)</label>
+          <label><input type="checkbox" id="chkCerradas"> Cerradas</label>
+          <label><input type="checkbox" id="chkHistorico"> Abiertas (Histórico)</label>
+          <span style="width:1px;height:22px;background:#dadce0;"></span>
+          <label for="selRango">Rango temporal:</label>
+          <select id="selRango" title="Últimas N semanas en orden cronológico">
+            <option value="todas">Todas</option>
+            <option value="52">Últimas 52 semanas</option>
+            <option value="26">Últimas 26 semanas</option>
+            <option value="13">Últimas 13 semanas</option>
+            <option value="8">Últimas 8 semanas</option>
+          </select>
+          <button type="button" id="btnReset">Restablecer</button>
+        </div>
+
+        <div id="rangoIndicador"></div>
+        <div id="chart_wrap">
+          <div id="chart_div">Cargando gráfico…</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="guiaView" style="display:none;">
+      <button type="button" id="btnVolverGuia" class="guia-volver">← Volver</button>
+      <h1 class="guia-titulo-principal">Guía de uso de estadísticas</h1>
+
+      <div class="manual-seccion">
+        <h2>📊 Métricas</h2>
+        <ul>
+          <li><strong>Nuevas</strong> → tareas dadas de alta en la semana.</li>
+          <li><strong>Cerradas</strong> → tareas finalizadas en la semana.</li>
+          <li><strong>Abiertas (actual)</strong> → tareas activas según la regla operativa del sistema.</li>
+          <li><strong>Histórico</strong> → backlog estimado al cierre de la semana (stock de abiertas).</li>
+        </ul>
+        <div class="ejemplo">Ejemplo: 20 → 30 → 40 → patrón de crecimiento semanal</div>
+      </div>
+
+      <div class="manual-seccion">
+        <h2>🔔 Estado y alertas en pantalla</h2>
+        <ul>
+          <li>🔴 <strong>Crítico</strong> → score muy bajo; priorizar acciones.</li>
+          <li>🟠 <strong>Alerta</strong> → score moderado o insights relevantes.</li>
+          <li>🟢 <strong>OK</strong> → dentro de lo habitual (siempre con criterio de negocio).</li>
+          <li>La sección «Alertas» puede estar vacía; no depende de hojas auxiliares.</li>
+        </ul>
+      </div>
+
+      <div class="manual-seccion">
+        <h2>📈 Interpretación rápida</h2>
+        <ul>
+          <li><strong>Backlog sube</strong> → acumulación de trabajo pendiente.</li>
+          <li><strong>Cerradas bajan</strong> → posible bloqueo o menos capacidad de cierre.</li>
+          <li><strong>Nuevas suben</strong> → más carga entrante.</li>
+        </ul>
+      </div>
+
+      <div class="manual-seccion">
+        <h2>✅ Acciones sugeridas</h2>
+        <ul>
+          <li>Priorizar <strong>cierres</strong> cuando el backlog crece.</li>
+          <li>Revisar <strong>tareas abiertas</strong> antiguas o estancadas.</li>
+          <li><strong>Equilibrar carga</strong> si las nuevas sostienen un ritmo alto.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var SERIES_META = [
+      { key: 'seriesNuevas', id: 'chkNuevas', label: 'Nuevas', color: '#1a73e8', valueIndex: 1 },
+      { key: 'seriesAbiertas', id: 'chkAbiertas', label: 'Abiertas (Actual)', color: '#e8710a', valueIndex: 2 },
+      { key: 'seriesCerradas', id: 'chkCerradas', label: 'Cerradas', color: '#188038', valueIndex: 3 },
+      { key: 'seriesHistorico', id: 'chkHistorico', label: 'Abiertas (Histórico)', color: '#c5221f', valueIndex: 4 }
+    ];
+
+    let dashboardData = null;
+    let chartsReady = false;
+
+    var allRows = [];
+    var chartInstance = null;
+    var persistTimer = null;
+    var DEBOUNCE_MS = 250;
+    var controlesGraficoCableados = false;
+
+    window.onload = function () {
+      google.charts.load('current', { packages: ['corechart'] });
+      google.charts.setOnLoadCallback(function () {
+        chartsReady = true;
+        console.log('CHARTS READY');
+
+        if (
+          dashboardData &&
+          dashboardData.grafica &&
+          dashboardData.grafica.rows &&
+          dashboardData.grafica.rows.length
+        ) {
+          allRows = dashboardData.grafica.rows;
+          redrawLocal(readConfigFromDom());
+        }
+
+        cablearSelectorVista();
+        cablearAyuda();
+        cablearControlesGrafico();
+        google.script.run
+          .withSuccessHandler(function (vista) {
+            restaurarVistaUIModal(vista === 'grafico' ? 'grafico' : 'dashboard');
+            cargarDatosDashboard();
+          })
+          .withFailureHandler(function () {
+            restaurarVistaUIModal('dashboard');
+            cargarDatosDashboard();
+          })
+          .getVistaEstadisticas();
+      });
+    };
+
+    function showErrGrafico(msg) {
+      var el = document.getElementById('errGrafico');
+      if (el) el.textContent = msg || '';
+    }
+
+    var TEXTO_TITULO_DASHBOARD = '📊 Dashboard de estadísticas';
+    var TEXTO_TITULO_GRAFICO = '📈 Gráfico de estadísticas';
+
+    function aplicarTituloSegunVista(esGrafico) {
+      var h = document.getElementById('tituloVista');
+      if (h) h.textContent = esGrafico ? TEXTO_TITULO_GRAFICO : TEXTO_TITULO_DASHBOARD;
+    }
+
+    /** Alinea DOM del selector con la vista persistida o elegida por el usuario. */
+    function restaurarVistaUIModal(vista) {
+      document.getElementById('guiaView').style.display = 'none';
+      if (vista === 'grafico') {
+        document.getElementById('dashboardView').style.display = 'none';
+        document.getElementById('graficoView').style.display = 'block';
+        document.getElementById('btnGrafico').classList.add('active');
+        document.getElementById('btnDashboard').classList.remove('active');
+        aplicarTituloSegunVista(true);
+      } else {
+        document.getElementById('dashboardView').style.display = '';
+        document.getElementById('graficoView').style.display = 'none';
+        document.getElementById('btnDashboard').classList.add('active');
+        document.getElementById('btnGrafico').classList.remove('active');
+        aplicarTituloSegunVista(false);
+      }
+    }
+
+    function mostrarGuia() {
+      document.getElementById('dashboardView').style.display = 'none';
+      document.getElementById('graficoView').style.display = 'none';
+      document.getElementById('guiaView').style.display = 'block';
+    }
+
+    function volverDashboard() {
+      document.getElementById('guiaView').style.display = 'none';
+      document.getElementById('dashboardView').style.display = '';
+      document.getElementById('graficoView').style.display = 'none';
+      document.getElementById('btnDashboard').classList.add('active');
+      document.getElementById('btnGrafico').classList.remove('active');
+      aplicarTituloSegunVista(false);
+    }
+
+    function cablearAyuda() {
+      document.getElementById('btnAyuda').addEventListener('click', mostrarGuia);
+      document.getElementById('btnVolverGuia').addEventListener('click', volverDashboard);
+    }
+
+    function cablearSelectorVista() {
+      document.getElementById('btnDashboard').addEventListener('click', function () {
+        restaurarVistaUIModal('dashboard');
+      });
+      document.getElementById('btnGrafico').addEventListener('click', function () {
+        restaurarVistaUIModal('grafico');
+        if (chartsReady && allRows && allRows.length) {
+          redrawLocal(readConfigFromDom());
+        }
+      });
+    }
+
+    function readConfigFromDom() {
+      return {
+        seriesNuevas: document.getElementById('chkNuevas').checked,
+        seriesAbiertas: document.getElementById('chkAbiertas').checked,
+        seriesCerradas: document.getElementById('chkCerradas').checked,
+        seriesHistorico: document.getElementById('chkHistorico').checked,
+        rangoSemanas: document.getElementById('selRango').value
+      };
+    }
+
+    function applyConfigToDom(cfg) {
+      document.getElementById('chkNuevas').checked = !!cfg.seriesNuevas;
+      document.getElementById('chkAbiertas').checked = !!cfg.seriesAbiertas;
+      document.getElementById('chkCerradas').checked = !!cfg.seriesCerradas;
+      document.getElementById('chkHistorico').checked = !!cfg.seriesHistorico;
+      document.getElementById('selRango').value = cfg.rangoSemanas || 'todas';
+    }
+
+    function textoIndicadorRango(cfg) {
+      var r = cfg.rangoSemanas || 'todas';
+      if (r === 'todas') return 'Mostrando: todas las semanas disponibles';
+      return 'Mostrando: últimas ' + r + ' semanas';
+    }
+
+    function updateRangoIndicador(cfg) {
+      document.getElementById('rangoIndicador').textContent = textoIndicadorRango(cfg);
+    }
+
+    function filterRowsByRango(rows, rango) {
+      if (!rows.length) return [];
+      if (!rango || rango === 'todas') return rows.slice();
+      var n = parseInt(rango, 10);
+      if (!n || n < 1) return rows.slice();
+      return rows.slice(-Math.min(n, rows.length));
+    }
+
+    function drawChart(rows, cfg) {
+      var filtered = filterRowsByRango(rows, cfg.rangoSemanas);
+      if (!filtered.length) {
+        showErrGrafico('No hay puntos en el rango seleccionado para el gráfico.');
+        document.getElementById('chart_div').textContent = '';
+        return;
+      }
+
+      showErrGrafico('');
+
+      var data = new google.visualization.DataTable();
+      data.addColumn('string', 'Semana');
+
+      var seriesOpts = {};
+      var col = 0;
+      SERIES_META.forEach(function (meta) {
+        if (!cfg[meta.key]) return;
+        data.addColumn('number', meta.label);
+        seriesOpts[col] = { color: meta.color, lineWidth: 2 };
+        col++;
+      });
+
+      filtered.forEach(function (row) {
+        var out = [row[0]];
+        SERIES_META.forEach(function (meta) {
+          if (!cfg[meta.key]) return;
+          out.push(row[meta.valueIndex] != null ? Number(row[meta.valueIndex]) : 0);
+        });
+        data.addRow(out);
+      });
+
+      var options = {
+        title: 'Evolución semanal',
+        curveType: 'none',
+        legend: { position: 'bottom' },
+        chartArea: { left: 56, top: 48, right: 24, bottom: 72, width: '85%', height: '68%' },
+        series: seriesOpts,
+        hAxis: { title: 'Semana', slantedText: true, slantedTextAngle: 45 },
+        vAxis: { minValue: 0, viewWindow: { min: 0 } },
+      };
+
+      if (!chartInstance) {
+        chartInstance = new google.visualization.LineChart(document.getElementById('chart_div'));
+      }
+      chartInstance.draw(data, options);
+    }
+
+    function redrawLocal(cfg) {
+      if (!chartsReady || !allRows || !allRows.length) return;
+      drawChart(allRows, cfg);
+      updateRangoIndicador(cfg);
+    }
+
+    function schedulePersistToServer() {
+      var cfgSend = readConfigFromDom();
+      if (persistTimer) clearTimeout(persistTimer);
+      persistTimer = setTimeout(function () {
+        persistTimer = null;
+        google.script.run
+          .withSuccessHandler(function (merged) {
+            applyConfigToDom(merged || cfgSend);
+            redrawLocal(merged || cfgSend);
+          })
+          .withFailureHandler(function (e) {
+            showErrGrafico(e && e.message ? e.message : String(e));
+          })
+          .guardarGraficaEstadisticasConfig(cfgSend);
+      }, DEBOUNCE_MS);
+    }
+
+    function onControlChange() {
+      showErrGrafico('');
+      var cfg = readConfigFromDom();
+      redrawLocal(cfg);
+      schedulePersistToServer();
+    }
+
+    function onResetClick() {
+      showErrGrafico('');
+      if (persistTimer) {
+        clearTimeout(persistTimer);
+        persistTimer = null;
+      }
+      google.script.run
+        .withSuccessHandler(function (cfg) {
+          console.log('RESET CFG:', cfg);
+          var c = cfg && typeof cfg === 'object' ? cfg : readConfigFromDom();
+          applyConfigToDom(c);
+          updateRangoIndicador(c);
+          redrawLocal(c);
+        })
+        .withFailureHandler(function (e) {
+          showErrGrafico(e && e.message ? e.message : String(e));
+        })
+        .resetGraficaConfig();
+    }
+
+    function cablearControlesGrafico() {
+      if (controlesGraficoCableados) return;
+      controlesGraficoCableados = true;
+      SERIES_META.forEach(function (meta) {
+        document.getElementById(meta.id).addEventListener('change', onControlChange);
+      });
+      document.getElementById('selRango').addEventListener('change', onControlChange);
+      document.getElementById('btnReset').addEventListener('click', onResetClick);
+    }
+
+    function pintarEstado(estado, score, recomendacion, tendenciaGlobal) {
+      var raw = estado != null ? String(estado).trim() : 'OK';
+      var norm = raw.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      var box = document.getElementById('estadoBox');
+      var titulo = document.getElementById('estadoTitulo');
+      var sub = document.getElementById('estadoSub');
+      document.getElementById('estadoScore').innerText =
+        'Score: ' + (score != null ? score : 0) + ' / 100';
+      document.getElementById('estadoTendenciaGlobal').innerText =
+        '📊 Tendencia: ' + (tendenciaGlobal != null ? String(tendenciaGlobal) : 'ESTABLE');
+      document.getElementById('estadoRecomendacion').innerText =
+        '👉 ' + (recomendacion != null ? String(recomendacion) : '');
+      box.className = 'estado-box';
+      if (norm.indexOf('CRITICO') !== -1) {
+        box.classList.add('estado-critico');
+        titulo.textContent = '🔴 ' + raw;
+        sub.textContent = 'Intervención prioritaria recomendada';
+      } else if (norm.indexOf('ALERTA') !== -1) {
+        box.classList.add('estado-alerta');
+        titulo.textContent = '🟠 ' + raw;
+        sub.textContent = 'Sistema bajo presión';
+      } else {
+        box.classList.add('estado-ok');
+        titulo.textContent = '🟢 ' + (raw || 'OK');
+        sub.textContent = 'Todo dentro de lo esperado';
+      }
+    }
+
+    function pintarKpi(id, data) {
+      var wrap = document.getElementById(id);
+      if (!wrap) return;
+      var main = wrap.querySelector('.kpi-value-main');
+      var delta = wrap.querySelector('.kpi-value-delta');
+      if (!main || !delta) return;
+      delta.classList.remove('kpi-up', 'kpi-down', 'kpi-flat');
+      if (typeof data === 'number') {
+        main.textContent = String(data);
+        delta.textContent = '';
+        delta.classList.add('kpi-flat');
+        return;
+      }
+      if (!data || typeof data !== 'object') {
+        main.textContent = '—';
+        delta.textContent = '';
+        delta.classList.add('kpi-flat');
+        return;
+      }
+      var v = Number(data.variacion);
+      var pctStr;
+      if (v > 100) pctStr = '100%+';
+      else if (v < -100) pctStr = '-100%+';
+      else pctStr = (v > 0 ? '+' : '') + v + '%';
+
+      main.textContent = String(data.valor);
+      delta.textContent = data.direccion + ' ' + pctStr;
+
+      if (data.direccion === '↑') delta.classList.add('kpi-up');
+      else if (data.direccion === '↓') delta.classList.add('kpi-down');
+      else delta.classList.add('kpi-flat');
+    }
+
+    function pintarPrediccion(pred) {
+      var el = document.getElementById('prediccionContainer');
+      if (!el) return;
+      if (!pred) {
+        el.textContent = 'No hay datos suficientes';
+        return;
+      }
+      var sentido = pred.sentidoBacklog || 'estable';
+      var msgClass = 'prediccion-msg prediccion-msg--estable';
+      if (sentido === 'sube') msgClass = 'prediccion-msg prediccion-msg--sube';
+      else if (sentido === 'baja') msgClass = 'prediccion-msg prediccion-msg--baja';
+      el.innerHTML =
+        '<div class="prediccion-row"><span>📈</span><span>Nuevas: <b>' +
+        pred.nuevas +
+        '</b></span></div>' +
+        '<div class="prediccion-row"><span>📉</span><span>Cerradas: <b>' +
+        pred.cerradas +
+        '</b></span></div>' +
+        '<div class="prediccion-row"><span>📊</span><span>Backlog: <b>' +
+        pred.historico +
+        '</b></span></div>' +
+        '<div class="' +
+        msgClass +
+        '">👉 ' +
+        (pred.mensaje || '') +
+        '</div>';
+    }
+
+    function pintarKpis(kpis) {
+      var k = kpis || {};
+      var semRaw = k.semana != null ? String(k.semana).trim() : '';
+      document.getElementById('kpiSemanaLinea').textContent =
+        semRaw ? 'Semana ' + semRaw : '';
+      pintarKpi('kpiNuevas', k.nuevas);
+      pintarKpi('kpiCerradas', k.cerradas);
+      pintarKpi('kpiHistorico', k.historico);
+    }
+
+    function pintarAlertas(arr) {
+      var container = document.getElementById('alertasContainer');
+      container.innerHTML = '';
+      var list = arr && arr.length ? arr : [];
+      if (!list.length) {
+        var neut = document.createElement('div');
+        neut.className = 'alerta alerta-neutral';
+        neut.textContent = 'Sin alertas en lista (el estado y los insights cubren el diagnóstico).';
+        container.appendChild(neut);
+        return;
+      }
+      list.forEach(function (texto, i) {
+        var div = document.createElement('div');
+        div.className = i % 2 === 0 ? 'alerta alerta-roja' : 'alerta alerta-naranja';
+        div.textContent = texto;
+        container.appendChild(div);
+      });
+    }
+
+    function cargarDatosDashboard() {
+      google.script.run
+        .withSuccessHandler(function (data) {
+          dashboardData = data;
+          renderDashboard();
+        })
+        .withFailureHandler(function (err) {
+          console.error('ERROR DASHBOARD:', err);
+        })
+        .obtenerDatosDashboardEstadisticas();
+    }
+
+    function renderDashboard() {
+      if (!dashboardData) return;
+
+      pintarEstado(
+        dashboardData.estado || 'OK',
+        dashboardData.score,
+        dashboardData.recomendacion,
+        dashboardData.tendenciaGlobal
+      );
+      pintarKpis(dashboardData.kpis || {});
+      pintarPrediccion(dashboardData.prediccion);
+      pintarAlertas(dashboardData.alertas || []);
+      pintarInsights(dashboardData.insights || []);
+
+      var graf = dashboardData.grafica;
+      if (graf && graf.config) {
+        applyConfigToDom(graf.config || {});
+        updateRangoIndicador(readConfigFromDom());
+      }
+
+      var rows = (dashboardData.grafica && dashboardData.grafica.rows) || [];
+
+      if (rows.length > 0) {
+        allRows = rows;
+        showErrGrafico('');
+        if (chartsReady) {
+          redrawLocal(readConfigFromDom());
+        } else {
+          console.log('Charts aún no listos');
+        }
+      } else {
+        allRows = [];
+        showErrGrafico('No hay datos en la hoja Estadisticas.');
+        var cd = document.getElementById('chart_div');
+        if (cd) cd.innerHTML = 'Sin datos';
+      }
+    }
+
+    function pintarInsights(insights) {
+      var container = document.getElementById('insightsContainer');
+      if (!container) return;
+      container.innerHTML = '';
+      var list = insights && insights.length ? insights : [];
+      if (!list.length) {
+        var ph = document.createElement('div');
+        ph.className = 'insight-placeholder';
+        ph.textContent =
+          '🟢 Sin cambios relevantes (sin variaciones significativas)';
+        container.appendChild(ph);
+        return;
+      }
+      list.forEach(function (ins) {
+        var card = document.createElement('div');
+        card.className = 'insight-card';
+        var t = document.createElement('div');
+        t.className = 'insight-texto';
+        t.textContent = '⚠️ ' + (ins.texto || '');
+        var r = document.createElement('div');
+        r.className = 'insight-rec';
+        r.textContent = '👉 ' + (ins.recomendacion || '');
+        card.appendChild(t);
+        card.appendChild(r);
+        container.appendChild(card);
+      });
+    }
+
+  </script>
+</body>
+
+</html>

@@ -7,6 +7,8 @@ function error(...args) {
 }
 
 function onOpen() {
+  repo_migrarColumnaObjetivoSiNecesario();
+
   let hj_actual = repo_obtenerHoja('Tareas');
   if (hj_actual) {
     hj_actual.activate();
@@ -190,14 +192,14 @@ function finalizarTarea() {
       aplicarColorTareaFinalizada(rngFhFin);
       /* Pasamos al tarea al estado 'hecho'
       */
-      repo_setValue('Tareas', filaTarea, 5, 'hecho');
+      repo_setValue('Tareas', filaTarea, TASK_COLUMNS.ESTADO.col, 'hecho');
 
       reubicarTareaFinalizada(hj_tareas, filasTareas, columnasTarea, filaTarea);
       reorganizarTareas();
     }
 
   } catch (error) {
-    throw new Error(err.message); // Pasar el error como controlado
+    throw new Error(error.message); // Pasar el error como controlado
   }
 }
 
@@ -232,7 +234,7 @@ function reactivarTarea() {
   try {
 
   } catch (err) {
-    throw new Error(error.message); // Pasar el error como controlado
+    throw new Error(err.message); // Pasar el error como controlado
   }
   /* Obtenemos la hoja activa, su nombre, la última fila con datos y la celda seleccionada
   */
@@ -248,8 +250,8 @@ function reactivarTarea() {
   */
   let indDentroRango = false;
   if (filaSelecc <= ultFilaHjActiva && columSelecc <= ultColumHjActiva) {
-    repo_setValue('Tareas', filaSelecc, 5, "");
-    repo_setValue('Tareas', filaSelecc, 7, "");
+    repo_setValue('Tareas', filaSelecc, TASK_COLUMNS.ESTADO.col, "");
+    repo_setValue('Tareas', filaSelecc, TASK_COLUMNS.FECHA_FIN_REAL.col, "");
 
     if (nbHjActiva === 'Hecho') {
       let vlModif = repo_getValues('Tareas', filaSelecc, 1, 1, ultColumHjActiva - 1);
@@ -270,8 +272,8 @@ function reactivarTarea() {
       hjActiva = hjDestino;
       //console.log(SpreadsheetApp.getActiveSpreadsheet().getActiveSheet().getName());
     } else if (nbHjActiva === 'Tareas') {
-      repo_setValue('Tareas', filaSelecc, 5, "");
-      repo_setValue('Tareas', filaSelecc, 7, "");
+      repo_setValue('Tareas', filaSelecc, TASK_COLUMNS.ESTADO.col, "");
+      repo_setValue('Tareas', filaSelecc, TASK_COLUMNS.FECHA_FIN_REAL.col, "");
       let rngModif = repo_getRangeEnHoja(hjActiva, filaSelecc, 1, 1, columSelecc - 1);
       aplicarColorTareaReactivada(rngModif);
     }
@@ -285,6 +287,7 @@ function reactivarTarea() {
 
 function reorganizarTareas() {
   try {
+    repo_migrarColumnaObjetivoSiNecesario();
 
     let vlTareas = obtenerTodasLasTareas();
     let tablafinal = svc_reorganizarTareas(vlTareas);
@@ -305,6 +308,7 @@ function reorganizarTareas() {
 
 function moverFinalizadas() {
   try {
+    repo_migrarColumnaObjetivoSiNecesario();
 
     /* Obtenemos las tareas finalizadas de la hoja 'Tareas'
     */
@@ -344,7 +348,7 @@ function moverFinalizadas() {
     repo_flush();
 
   } catch (err) {
-    throw new Error(error.message); // Pasar el error como controlado
+    throw new Error(err.message); // Pasar el error como controlado
   }
 }
 

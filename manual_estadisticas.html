@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <base target="_top">
+  <style>
+    body {
+      margin: 0;
+      padding: 20px 24px 28px;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+      color: #1f2937;
+      line-height: 1.45;
+      background: #fafbfc;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      font-size: 1.35rem;
+      color: #111827;
+    }
+
+    .manual-seccion {
+      margin-bottom: 20px;
+      padding: 15px;
+      border-left: 4px solid #3d5a80;
+      background: #f8f9fa;
+      border-radius: 4px;
+    }
+
+    .manual-seccion h2 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      color: #374151;
+    }
+
+    .manual-seccion ul {
+      margin: 8px 0 0;
+      padding-left: 1.2rem;
+    }
+
+    .manual-seccion li {
+      margin: 6px 0;
+    }
+
+    .ejemplo {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #eef1f4;
+      border-radius: 8px;
+      font-family: ui-monospace, monospace;
+      font-size: 13px;
+      color: #4b5563;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Guía de uso de estadísticas</h1>
+
+  <div class="manual-seccion">
+    <h2>📊 Métricas</h2>
+    <ul>
+      <li><strong>Nuevas</strong> → tareas dadas de alta en la semana.</li>
+      <li><strong>Cerradas</strong> → tareas finalizadas en la semana.</li>
+      <li><strong>Abiertas (actual)</strong> → tareas activas según la regla operativa del sistema.</li>
+      <li><strong>Histórico</strong> → backlog estimado al cierre de la semana (stock de abiertas).</li>
+    </ul>
+    <div class="ejemplo">Ejemplo: 20 → 30 → 40 → patrón de crecimiento semanal</div>
+  </div>
+
+  <div class="manual-seccion">
+    <h2>🔔 Alertas (dashboard)</h2>
+    <ul>
+      <li>🔴 <strong>Crítico</strong> → situación grave; revisar con prioridad.</li>
+      <li>🟠 <strong>Alerta</strong> → conviene revisar carga o cuellos de botella.</li>
+      <li>🟢 <strong>OK</strong> → dentro de lo habitual (siempre con criterio de negocio).</li>
+    </ul>
+  </div>
+
+  <div class="manual-seccion">
+    <h2>📈 Interpretación rápida</h2>
+    <ul>
+      <li><strong>Backlog sube</strong> → acumulación de trabajo pendiente.</li>
+      <li><strong>Cerradas bajan</strong> → posible bloqueo o menos capacidad de cierre.</li>
+      <li><strong>Nuevas suben</strong> → más carga entrante.</li>
+    </ul>
+  </div>
+
+  <div class="manual-seccion">
+    <h2>✅ Acciones sugeridas</h2>
+    <ul>
+      <li>Priorizar <strong>cierres</strong> cuando el backlog crece.</li>
+      <li>Revisar <strong>tareas abiertas</strong> antiguas o estancadas.</li>
+      <li><strong>Equilibrar carga</strong> si las nuevas sostienen un ritmo alto.</li>
+    </ul>
+  </div>
+</body>
+
+</html>

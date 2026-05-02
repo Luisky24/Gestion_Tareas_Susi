@@ -87,11 +87,11 @@ function calcularResumenHechas(nombresHojas, hojaErrores) {
     const datos = hoja.getDataRange().getValues();
     datos.shift(); // quitar encabezado
 
-    const IDX_FECHA = 0;
-    const IDX_PRIORIDAD = 2;
-    const IDX_ESTADO = 4;
-    const IDX_FECHA_FIN_EST = 5;
-    const IDX_FECHA_FIN = 6;
+    const IDX_FECHA = TASK_COLUMNS.FECHA_ALTA.idx;
+    const IDX_PRIORIDAD = TASK_COLUMNS.PRIORIDAD.idx;
+    const IDX_ESTADO = TASK_COLUMNS.ESTADO.idx;
+    const IDX_FECHA_FIN_EST = TASK_COLUMNS.FECHA_FIN_ESTIMADA.idx;
+    const IDX_FECHA_FIN = TASK_COLUMNS.FECHA_FIN_REAL.idx;
 
     datos.forEach((row, idx) => {
       const fila = idx + 2;
@@ -157,9 +157,9 @@ function calcularResumenNoHechas(nombresHojas, hojaErrores) {
     const datos = hoja.getDataRange().getValues();
     datos.shift(); // quitar encabezado
 
-    const IDX_FECHA = 0;
-    const IDX_PRIORIDAD = 2;
-    const IDX_ESTADO = 4;
+    const IDX_FECHA = TASK_COLUMNS.FECHA_ALTA.idx;
+    const IDX_PRIORIDAD = TASK_COLUMNS.PRIORIDAD.idx;
+    const IDX_ESTADO = TASK_COLUMNS.ESTADO.idx;
 
     datos.forEach((row, idx) => {
       const fila = idx + 2;

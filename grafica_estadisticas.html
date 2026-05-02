@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <base target="_top">
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 12px;
+      color: #202124;
+    }
+
+    #toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px 20px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #dadce0;
+    }
+
+    #toolbar label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    #toolbar select {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #dadce0;
+      font-size: 14px;
+    }
+
+    #btnReset {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid #dadce0;
+      background: #fff;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    #btnReset:hover {
+      background: #f1f3f4;
+    }
+
+    #rangoIndicador {
+      font-size: 14px;
+      color: #5f6368;
+      margin-bottom: 8px;
+      min-height: 1.4em;
+    }
+
+    #chart_div {
+      width: 100%;
+      min-height: 440px;
+    }
+
+    #err {
+      color: #c5221f;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="err"></div>
+
+  <div id="toolbar">
+    <span style="font-weight:600;">Series:</span>
+    <label><input type="checkbox" id="chkNuevas"> Nuevas</label>
+    <label><input type="checkbox" id="chkAbiertas"> Abiertas (Actual)</label>
+    <label><input type="checkbox" id="chkCerradas"> Cerradas</label>
+    <label><input type="checkbox" id="chkHistorico"> Abiertas (Histórico)</label>
+    <span style="width:1px;height:24px;background:#dadce0;"></span>
+    <label for="selRango">Rango temporal:</label>
+    <select id="selRango" title="Últimas N semanas en orden cronológico">
+      <option value="todas">Todas</option>
+      <option value="52">Últimas 52 semanas</option>
+      <option value="26">Últimas 26 semanas</option>
+      <option value="13">Últimas 13 semanas</option>
+      <option value="8">Últimas 8 semanas</option>
+    </select>
+    <button type="button" id="btnReset">Restablecer</button>
+  </div>
+
+  <div id="rangoIndicador"></div>
+  <div id="chart_div">Cargando…</div>
+
+  <script>
+    var SERIES_META = [
+      { key: 'seriesNuevas', id: 'chkNuevas', label: 'Nuevas', color: '#1a73e8', valueIndex: 1 },
+      { key: 'seriesAbiertas', id: 'chkAbiertas', label: 'Abiertas (Actual)', color: '#e8710a', valueIndex: 2 },
+      { key: 'seriesCerradas', id: 'chkCerradas', label: 'Cerradas', color: '#188038', valueIndex: 3 },
+      { key: 'seriesHistorico', id: 'chkHistorico', label: 'Abiertas (Histórico)', color: '#c5221f', valueIndex: 4 }
+    ];
+
+    var allRows = [];
+    var chartInstance = null;
+    var persistTimer = null;
+    var DEBOUNCE_MS = 250;
+
+    google.charts.load('current', { packages: ['corechart'] });
+    google.charts.setOnLoadCallback(function () {
+      wireControls();
+      loadData();
+    });
+
+    function showError(msg) {
+      document.getElementById('err').textContent = msg || '';
+    }
+
+    function readConfigFromDom() {
+      return {
+        seriesNuevas: document.getElementById('chkNuevas').checked,
+        seriesAbiertas: document.getElementById('chkAbiertas').checked,
+        seriesCerradas: document.getElementById('chkCerradas').checked,
+        seriesHistorico: document.getElementById('chkHistorico').checked,
+        rangoSemanas: document.getElementById('selRango').value
+      };
+    }
+
+    function applyConfigToDom(cfg) {
+      document.getElementById('chkNuevas').checked = !!cfg.seriesNuevas;
+      document.getElementById('chkAbiertas').checked = !!cfg.seriesAbiertas;
+      document.getElementById('chkCerradas').checked = !!cfg.seriesCerradas;
+      document.getElementById('chkHistorico').checked = !!cfg.seriesHistorico;
+      document.getElementById('selRango').value = cfg.rangoSemanas || 'todas';
+    }
+
+    function textoIndicadorRango(cfg) {
+      var r = cfg.rangoSemanas || 'todas';
+      if (r === 'todas') return 'Mostrando: todas las semanas disponibles';
+      return 'Mostrando: últimas ' + r + ' semanas';
+    }
+
+    function updateRangoIndicador(cfg) {
+      document.getElementById('rangoIndicador').textContent = textoIndicadorRango(cfg);
+    }
+
+    function filterRowsByRango(rows, rango) {
+      if (!rows.length) return [];
+      if (!rango || rango === 'todas') return rows.slice();
+      var n = parseInt(rango, 10);
+      if (!n || n < 1) return rows.slice();
+      return rows.slice(-Math.min(n, rows.length));
+    }
+
+    function redrawLocal(cfg) {
+      drawChart(allRows, cfg);
+      updateRangoIndicador(cfg);
+    }
+
+    function schedulePersistToServer() {
+      var cfgSend = readConfigFromDom();
+      if (persistTimer) clearTimeout(persistTimer);
+      persistTimer = setTimeout(function () {
+        persistTimer = null;
+        google.script.run
+          .withSuccessHandler(function (merged) {
+            applyConfigToDom(merged || cfgSend);
+            redrawLocal(merged || cfgSend);
+          })
+          .withFailureHandler(function (e) {
+            showError(e && e.message ? e.message : String(e));
+          })
+          .guardarGraficaEstadisticasConfig(cfgSend);
+      }, DEBOUNCE_MS);
+    }
+
+    function onControlChange() {
+      showError('');
+      var cfg = readConfigFromDom();
+      redrawLocal(cfg);
+      schedulePersistToServer();
+    }
+
+    function onResetClick() {
+      showError('');
+      if (persistTimer) {
+        clearTimeout(persistTimer);
+        persistTimer = null;
+      }
+      google.script.run
+        .withSuccessHandler(function (merged) {
+          applyConfigToDom(merged || {});
+          redrawLocal(merged || readConfigFromDom());
+        })
+        .withFailureHandler(function (e) {
+          showError(e && e.message ? e.message : String(e));
+        })
+        .resetGraficaConfig();
+    }
+
+    function loadData() {
+      google.script.run
+        .withSuccessHandler(function (payload) {
+          allRows = payload && payload.rows ? payload.rows : [];
+          var cfg = payload && payload.config ? payload.config : {};
+          applyConfigToDom(cfg);
+          showError('');
+          if (!allRows.length) {
+            showError('No hay datos en la hoja Estadisticas.');
+            document.getElementById('chart_div').textContent = '';
+            updateRangoIndicador(readConfigFromDom());
+            return;
+          }
+          redrawLocal(readConfigFromDom());
+        })
+        .withFailureHandler(function (e) {
+          showError(e && e.message ? e.message : String(e));
+          document.getElementById('chart_div').textContent = '';
+        })
+        .obtenerDatosGraficaEstadisticas();
+    }
+
+    function drawChart(rows, cfg) {
+      var filtered = filterRowsByRango(rows, cfg.rangoSemanas);
+      if (!filtered.length) {
+        showError('No hay puntos en el rango seleccionado.');
+        document.getElementById('chart_div').textContent = '';
+        return;
+      }
+
+      showError('');
+
+      var data = new google.visualization.DataTable();
+      data.addColumn('string', 'Semana');
+
+      var seriesOpts = {};
+      var col = 0;
+      SERIES_META.forEach(function (meta) {
+        if (!cfg[meta.key]) return;
+        data.addColumn('number', meta.label);
+        seriesOpts[col] = { color: meta.color, lineWidth: 2 };
+        col++;
+      });
+
+      filtered.forEach(function (row) {
+        var out = [row[0]];
+        SERIES_META.forEach(function (meta) {
+          if (!cfg[meta.key]) return;
+          out.push(row[meta.valueIndex] != null ? Number(row[meta.valueIndex]) : 0);
+        });
+        data.addRow(out);
+      });
+
+      var options = {
+        title: 'Evolución semanal',
+        curveType: 'none',
+        legend: { position: 'bottom' },
+        chartArea: { left: 56, top: 48, right: 24, bottom: 72, width: '85%', height: '68%' },
+        series: seriesOpts,
+        hAxis: { title: 'Semana', slantedText: true, slantedTextAngle: 45 },
+        vAxis: { minValue: 0, viewWindow: { min: 0 } },
+      };
+
+      if (!chartInstance) {
+        chartInstance = new google.visualization.LineChart(document.getElementById('chart_div'));
+      }
+      chartInstance.draw(data, options);
+    }
+
+    function wireControls() {
+      SERIES_META.forEach(function (meta) {
+        document.getElementById(meta.id).addEventListener('change', onControlChange);
+      });
+      document.getElementById('selRango').addEventListener('change', onControlChange);
+      document.getElementById('btnReset').addEventListener('click', onResetClick);
+    }
+  </script>
+</body>
+
+</html>

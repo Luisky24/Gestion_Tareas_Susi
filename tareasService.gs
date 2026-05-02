@@ -48,20 +48,14 @@ function procesarFinalizarTarea(tarea, fechaActual) {
     throw new Error("Estructura de tarea inválida: se esperaba un array");
   }
 
-  // Si ya está finalizada, no permitimos finalizar de nuevo
-  if (tareaMod.length >= 5 && tareaMod[4] === 'hecho') {
+  task_padRowToExpectedWidth(tareaMod);
+
+  if (task_isHecho(tareaMod)) {
     throw new Error("La tarea ya está finalizada (estado 'hecho')");
   }
 
-  // estado
-  if (tareaMod.length >= 5) {
-    tareaMod[4] = 'hecho';
-  }
-
-  // fecha fin (última columna)
-  if (tareaMod.length >= 1) {
-    tareaMod[tareaMod.length - 1] = fechaActual;
-  }
+  tareaMod[TASK_COLUMNS.ESTADO.idx] = "hecho";
+  tareaMod[TASK_COLUMNS.FECHA_FIN_REAL.idx] = fechaActual;
 
   return tareaMod;
 }
@@ -85,32 +79,25 @@ function procesarReorganizacionTareas(tareas) {
 
   let fhDia = new Date().getTime();
 
-/* distribuir en tres tablas las tareas según su estado, 'en curso', 'retrasadas', 'finalizadas'
-*/
-
   vlTareas.forEach((elemento, indice) => {
-    let colorTarea = null;
     let fhEstimada = fhDia;
-    if (elemento[5] != "") {
-      fhEstimada = elemento[5].getTime();
+    const est = task_getFechaFinEstimada(elemento);
+    if (est !== null && est !== undefined && est !== "") {
+      const t = task_safeTime(est);
+      if (t > 0) fhEstimada = t;
     }
-    if (fhDia > fhEstimada && elemento[4] != "hecho") {
+
+    if (fhDia > fhEstimada && !task_isHecho(elemento)) {
       tblTareasRetrasadas.push(vlTareas[indice]);
-    } else if (elemento[4] == "hecho") {
+    } else if (task_isHecho(elemento)) {
       tblTareasFinalizadas.push(vlTareas[indice]);
     } else {
       tblTareasCurso.push(vlTareas[indice]);
     }
-
   });
 
-  // Ordenar tareas 'en curso'
   svc_ordenarTareas(tblTareasCurso, ultimaColumna);
-
-  // Ordenar tareas 'retrasadas'
   svc_ordenarTareas(tblTareasRetrasadas, ultimaColumna);
-
-  // Ordenar tareas 'finalizadas'
   svc_ordenarTareas(tblTareasFinalizadas, ultimaColumna);
 
   let tablafinal = [...tblTareasRetrasadas, ...tblTareasCurso, ...tblTareasFinalizadas];
@@ -129,22 +116,40 @@ function svc_moverFinalizadas(vlTareas, vlHecho) {
 // Dominio puro (helpers)
 // =====================
 
+/** Prioridad numérica para ordenar; valores no numéricos → 0 (evita NaN en el comparator). */
+function task_prioridadNumericaSegura_(row) {
+  if (!Array.isArray(row)) return 0;
+  const n = Number(row[TASK_COLUMNS.PRIORIDAD.idx]);
+  if (!isFinite(n)) return 0;
+  return n;
+}
+
 function svc_ordenarTareas(tblTareas, num_columnas) {
-
   tblTareas.sort((a, b) => {
-    const prioridadDif = a[2] - b[2];
+    const pa = task_prioridadNumericaSegura_(a);
+    const pb = task_prioridadNumericaSegura_(b);
+    let prioridadDif = pa - pb;
+    if (!isFinite(prioridadDif)) prioridadDif = 0;
 
-    if (prioridadDif !== 0) { return prioridadDif; }
+    if (prioridadDif !== 0) return prioridadDif;
 
-    let fechaA = a[num_columnas - 1];
-    let fechaB = b[num_columnas - 1];
+    let fechaA = task_getFechaFinReal(a);
+    let fechaB = task_getFechaFinReal(b);
 
-    if (fechaA == "") { fechaA = new Date() };
-    if (fechaB == "") { fechaB = new Date() };
+    if (fechaA === "") fechaA = new Date();
+    if (fechaB === "") fechaB = new Date();
 
-    return fechaA.getTime() - fechaB.getTime();
-  })
+    const realDiff = fechaA.getTime() - fechaB.getTime();
+    if (realDiff !== 0) return realDiff;
 
+    const dayA = task_dayKeyEstimada(a);
+    const dayB = task_dayKeyEstimada(b);
+    if (dayA !== dayB) return 0;
+
+    const aX = task_isObjetivoMarcado(a) ? 1 : 0;
+    const bX = task_isObjetivoMarcado(b) ? 1 : 0;
+    return bX - aX;
+  });
 }
 
 function procesarMoverFinalizadas(tareas, tareasHecho) {
@@ -158,22 +163,17 @@ function procesarMoverFinalizadas(tareas, tareasHecho) {
     return { tareasRestantes: [], tareasHechoFinal: [] };
   }
 
-  let numcolumnas = 0;
-  if (vlTareas.length > 0 && Array.isArray(vlTareas[0])) {
-    numcolumnas = vlTareas[0].length;
-  }
-
   let lstTareasFinalizadas = [];
   let tareasRestantes = [];
 
   vlTareas.some((elemento, indice) => {
     if (!Array.isArray(elemento)) return;
-    if (numcolumnas > 0 && elemento[numcolumnas - 3] == 'hecho') {
+    if (task_isHecho(elemento)) {
       lstTareasFinalizadas.push(elemento);
     } else {
       tareasRestantes.push(elemento);
     }
-  })
+  });
 
   const safeTime = (v) => {
     if (v instanceof Date) return isNaN(v.getTime()) ? null : v.getTime();
@@ -188,46 +188,34 @@ function procesarMoverFinalizadas(tareas, tareasHecho) {
     return null;
   };
 
-  /*Verificamos si existe la tarea finalizada a mover en las tares de la hoja 'Hecho'
-  Obtenemos los elementos a incluir y la posición que ocupa el elemnto inmediatamente inferior
-  a este
-  */
   let mapIn = new Map();
 
   for (let elemenIn of lstTareasFinalizadas) {
     if (!Array.isArray(elemenIn)) continue;
 
-    /* Clave formada por: fecha finalización, tarea, fecha alta
-    */
-    let tFin = safeTime(elemenIn[6]);
-    let tAlta = safeTime(elemenIn[0]);
-    let nombre = elemenIn[1];
+    let tFin = safeTime(task_getFechaFinReal(elemenIn));
+    let tAlta = safeTime(elemenIn[TASK_COLUMNS.FECHA_ALTA.idx]);
+    let nombre = elemenIn[TASK_COLUMNS.TITULO.idx];
     if (nombre === null || nombre === undefined) nombre = "";
     let claveIn = `${tFin === null ? 0 : tFin}|${nombre}|${tAlta === null ? 0 : tAlta}`;
 
     mapIn.set(claveIn, elemenIn);
-
   }
 
-  /* Unimos tanto los nuevos elementos a incoporar a Hecho como los que tenía esta hoja, 
-  posteriormente lo ordenamos por Fecha Fin Real, fecha alta y Noombre tarea descendentemente
-  */
   let mapHch = new Map();
   let filaHch = 0;
-  if (vlHecho.length > 0 && Array.isArray(vlHecho[0]) && vlHecho[0][1] != "") {
+  if (vlHecho.length > 0 && Array.isArray(vlHecho[0]) && vlHecho[0][TASK_COLUMNS.TITULO.idx] != "") {
     for (elemenHch of vlHecho) {
       if (!Array.isArray(elemenHch)) continue;
-      /* Clave formada por: fecha finalización, tarea, fecha alta
-      */
-      let tFin = safeTime(elemenHch[6]);
-      let tAlta = safeTime(elemenHch[0]);
-      let nombre = elemenHch[1];
+
+      let tFin = safeTime(task_getFechaFinReal(elemenHch));
+      let tAlta = safeTime(elemenHch[TASK_COLUMNS.FECHA_ALTA.idx]);
+      let nombre = elemenHch[TASK_COLUMNS.TITULO.idx];
       if (nombre === null || nombre === undefined) nombre = "";
       let claveHch = `${tFin === null ? 0 : tFin}|${nombre}|${tAlta === null ? 0 : tAlta}`;
 
       mapHch.set(claveHch, elemenHch);
       filaHch++;
-
     }
   }
 
@@ -238,8 +226,7 @@ function procesarMoverFinalizadas(tareas, tareasHecho) {
   let tareasHechoFinal = [];
   sortedMap.forEach((valor) => {
     tareasHechoFinal.push(valor);
-  })
+  });
 
   return { tareasRestantes, tareasHechoFinal };
 }
-

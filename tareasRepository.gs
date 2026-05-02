@@ -156,6 +156,51 @@ function repo_flush() {
 }
 
 /**
+ * Inserta la columna "Objetivo" entre E y F si la hoja sigue el esquema legacy (7 columnas).
+ * Idempotente: no hace nada si ya hay al menos 8 columnas.
+ */
+function repo_migrarColumnaObjetivoSiNecesario() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) return;
+
+  const expectedCol = TASK_COLUMNS.FECHA_FIN_REAL.col;
+  const logMigracion = (msg) => {
+    if (typeof APP !== "undefined" && APP.LOG && typeof APP.LOG.log === "function") {
+      APP.LOG.log(msg);
+    } else {
+      Logger.log(msg);
+    }
+  };
+
+  [NOMBRE_HOJA_TAREAS, "Hecho"].forEach((nombre) => {
+    const sh = ss.getSheetByName(nombre);
+    if (!sh) return;
+    const lc = sh.getLastColumn();
+    if (lc >= expectedCol) return;
+
+    if (lc < 7) {
+      logMigracion(
+        "[Migración Objetivo] Hoja \"" +
+          nombre +
+          "\": getLastColumn=" +
+          lc +
+          " (<7). No se migra automáticamente; revise la estructura de la hoja."
+      );
+      return;
+    }
+
+    // Esquema antiguo: 7 columnas (A–G). Insertar antes de la antigua F (fecha estimada) = col 6.
+    if (lc === 7) {
+      const lcConfirm = sh.getLastColumn();
+      if (lcConfirm !== 7) return;
+
+      sh.insertColumnBefore(6);
+      sh.getRange(1, 6).setValue("Objetivo");
+    }
+  });
+}
+
+/**
  * Devuelve la hoja de tareas o null si no existe.
  * @returns {GoogleAppsScript.Spreadsheet.Sheet|null}
  */
@@ -181,11 +226,18 @@ function obtenerTodasLasTareas() {
 
   const numRows = lastRow - FILA_INICIO_DATOS_TAREAS + 1;
   const rango = hoja.getRange(FILA_INICIO_DATOS_TAREAS, 1, numRows, lastCol);
-  const valores = rango.getValues();
+  let valores = rango.getValues();
 
   // Caso borde: a veces getValues devuelve [ [] ] si el rango es “vacío”.
   if (!valores || valores.length === 0) return [];
   if (valores.length === 1 && (!valores[0] || valores[0].length === 0)) return [];
+
+  const expected = task_expectedColumnCount();
+  valores = valores.map((row) => {
+    const r = Array.isArray(row) ? row.slice() : [];
+    while (r.length < expected) r.push("");
+    return r;
+  });
 
   return valores;
 }
@@ -201,12 +253,19 @@ function escribirTareas(tareas) {
   if (!hoja) return;
   if (!Array.isArray(tareas) || tareas.length === 0) return;
 
-  const numRows = tareas.length;
-  const numCols = Array.isArray(tareas[0]) ? tareas[0].length : 0;
+  const expected = task_expectedColumnCount();
+  const normalizadas = tareas.map((row) => {
+    const r = Array.isArray(row) ? row.slice() : [];
+    while (r.length < expected) r.push("");
+    return r;
+  });
+
+  const numRows = normalizadas.length;
+  const numCols = expected;
   if (numCols < 1) return;
 
   const rango = hoja.getRange(FILA_INICIO_DATOS_TAREAS, 1, numRows, numCols);
-  rango.setValues(tareas);
+  rango.setValues(normalizadas);
 }
 
 /**

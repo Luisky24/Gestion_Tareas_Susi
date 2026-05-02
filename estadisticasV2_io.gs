@@ -25,14 +25,37 @@ function obtenerDatosHoja(ctx, hojaBusqueda) {
   }
 }
 
+/**
+ * Quita gráficos incrustados antiguos en la hoja Estadisticas (p. ej. de versiones previas del script).
+ */
+function limpiarGraficosEstadisticas_() {
+  try {
+    const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Estadisticas');
+
+    if (!hoja) return;
+
+    const charts = hoja.getCharts();
+    for (let i = charts.length - 1; i >= 0; i--) {
+      hoja.removeChart(charts[i]);
+    }
+  } catch (error) {
+    registrarError('limpiarGraficosEstadisticas_', error);
+  }
+}
+
 function prepararHojaEstadisticas(ctx) {
   try {
+    limpiarGraficosEstadisticas_();
+
     if (existeHoja(ctx)) {
       borrarHoja(ctx);
     }
 
     crearHoja(ctx, 3);
+    limpiarGraficosEstadisticas_();
+
     ctx.hoja.getRange(1, 1, 1, ctx.cabeceras.length).setValues([ctx.cabeceras]);
+    aplicarPresentacionCabecerasYColumnaEstadisticas_(ctx.hoja);
 
     ctx.tareas = obtenerDatosHoja(ctx, "Tareas");
     ctx.hechos = obtenerDatosHoja(ctx, "Hecho");
@@ -40,6 +63,22 @@ function prepararHojaEstadisticas(ctx) {
   } catch (error) {
     registrarError("prepararHojaEstadisticas", error);
     throw error; // detiene proceso si falla esta parte crítica
+  }
+}
+
+/**
+ * Textos de cabecera visibles y columna G oculta (datos y etiquetas siguen usando la columna).
+ * No altera el motor V2 ni los valores numéricos.
+ */
+function aplicarPresentacionCabecerasYColumnaEstadisticas_(hoja) {
+  try {
+    if (!hoja) return;
+    hoja.getRange(1, 4).setValue('Tareas Abiertas (Actual)');
+    hoja.getRange(1, 6).setValue('Tareas Abiertas (Histórico)');
+    hoja.getRange(1, 7).setValue('Semana (Año)');
+    hoja.hideColumns(7, 1);
+  } catch (error) {
+    registrarError('aplicarPresentacionCabecerasYColumnaEstadisticas_', error);
   }
 }
 

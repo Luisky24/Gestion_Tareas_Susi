@@ -23,7 +23,7 @@ function aplicarColorNuevaTarea(rangoNuevaTarea, colorBase) {
   if (colorBase != colorHex_amarillo) {
     rangoNuevaTarea.setBackground(colorHex_amarillo);
   } else {
-    rangoNuevaTarea.setBackground(colorHex_blanco)
+    rangoNuevaTarea.setBackground(colorHex_blanco);
   }
 }
 
@@ -44,41 +44,32 @@ function aplicarColorPijama(hoja) {
   let num_columnas = hj_actual.getLastColumn();
   if (num_filas < 2 || num_columnas < 1) return;
 
-  // Color pijama
   const colorHex_amarillo = rgbToHex(255, 255, 195);
   const colorHex_blanco = rgbToHex(255, 255, 255);
   const colorHex_gris = rgbToHex(210, 210, 210);
-  const colorTareasVencidas = rgbToHex(255, 125, 125);
-  let fhDia = new Date().getTime();
+  const colorHex_verde = rgbToHex(200, 230, 201);
+  const colorHex_azul = rgbToHex(187, 222, 251);
 
-  let rng_pijama = hj_actual.getRange(2, 1, num_filas-1, num_columnas);
+  let rng_pijama = hj_actual.getRange(2, 1, num_filas - 1, num_columnas);
   let vl_pijama = rng_pijama.getValues();
   let colores = [];
 
-  for (let i = 0; i < num_filas-1; i++) {
-    let color = colorHex_blanco;
+  for (let i = 0; i < num_filas - 1; i++) {
+    const row = vl_pijama[i];
+    task_padRowToExpectedWidth(row);
 
-    if (i % 2 === 0) {
+    let color =
+      i % 2 === 0 ? colorHex_blanco : colorHex_amarillo;
 
-      color = colorHex_blanco;
-
-    } else {
-
-      color = colorHex_amarillo;
-
-    }
-
-    if (vl_pijama[i][4] == "hecho") {
+    if (task_isObjetivoMarcado(row)) {
+      color = colorHex_verde;
+    } else if (task_isHecho(row)) {
       color = colorHex_gris;
-    } else if (vl_pijama[i][5] != "") {
-      let fhFinEsperada = vl_pijama[i][5].getTime();
-      if (fhDia > fhFinEsperada) {
-        color = colorTareasVencidas;
-      }
+    } else if (task_estimadaMenorOIgualHoy(row)) {
+      color = colorHex_azul;
     }
 
     colores.push(Array(num_columnas).fill(color));
-
   }
 
   rng_pijama.setBackgrounds(colores);
@@ -89,4 +80,3 @@ function pijama() {
   let hj_actual = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   aplicarColorPijama(hj_actual);
 }
-

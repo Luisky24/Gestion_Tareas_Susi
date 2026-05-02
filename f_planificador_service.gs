@@ -9,6 +9,10 @@
  * No llamar directamente a funciones internas.
  */
 function ejecutarEstadisticasDelSistema() {
+  repo_migrarColumnaObjetivoSiNecesario();
+
+  eliminarHojasAnalisisManualLegacy_();
+
   /**
    * Orquestador de estadísticas del sistema.
    *
@@ -45,6 +49,10 @@ function ejecutarEstadisticasDelSistema() {
   if (CONFIG_ESTADISTICAS.analitico === true) {
     ejecutarEstadisticasAnaliticas();
   }
+
+  ejecutarToastInteligenteDashboardSiCorresponde();
+
+  ejecutarAlertasProactivasDashboardSiCorresponde();
 }
 
 function ejecutarCalculoEstadisticas() {

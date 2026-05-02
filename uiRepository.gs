@@ -8,6 +8,10 @@ function ui_crearMenu() {
   SpreadsheetApp.getUi()
     .createMenu('Lista Tareas')
     .addItem('Mostrar Barar Lateral', 'mostrarBarraLateral')
+    .addSeparator()
+    .addItem('Estadísticas: alternar orden ASC/DESC', 'toggleOrdenEstadisticas')
+    .addItem('Estadísticas: gráfica (ventana)', 'mostrarGraficaEstadisticas')
+    .addItem('Ver dashboard de estadísticas', 'mostrarDashboardEstadisticas')
     .addToUi();
 }
 
