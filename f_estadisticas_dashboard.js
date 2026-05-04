@@ -583,7 +583,7 @@ function ejecutarAlertasProactivasDashboardSiCorresponde() {
 }
 
 function mostrarDashboardEstadisticas() {
-  const html = HtmlService.createHtmlOutputFromFile('dashboard_estadisticas')
+  const html = HtmlService.createHtmlOutput(getDashboardEstadisticasHtml())
     .setWidth(940)
     .setHeight(780);
   SpreadsheetApp.getUi().showModalDialog(html, 'Dashboard de estadísticas');

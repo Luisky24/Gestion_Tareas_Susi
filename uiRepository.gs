@@ -17,14 +17,13 @@ function ui_crearMenu() {
 
 function ui_renderHtml(nombreArchivo) {
   // Necesario para que se procese <?!= ... ?> en los HTML (templating de GAS).
-  // Se evita el encadenado y se añade fallback seguro.
-  const template = HtmlService.createTemplateFromFile(nombreArchivo);
+  // HTML embebido vía gasHtmlRawByName_ (bundle sin archivos .html externos).
+  const html = gasHtmlRawByName_(nombreArchivo);
+  const template = HtmlService.createTemplate(html);
   if (template && typeof template.evaluate === 'function') {
     return template.evaluate();
   }
-  // Fallback: evita romper el flujo si algo raro pasa en runtime.
-  // (OJO: con este fallback no se procesan <?!= ... ?>)
-  return HtmlService.createHtmlOutputFromFile(nombreArchivo);
+  return HtmlService.createHtmlOutput(html);
 }
 
 function ui_renderHtmlContent(nombreArchivo) {

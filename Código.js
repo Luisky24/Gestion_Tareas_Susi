@@ -34,7 +34,7 @@ function mostrarBarraLateral() {
 }
 
 function abrirPanelTriggers() {
-  const html = HtmlService.createTemplateFromFile('panelTriggers')
+  const html = HtmlService.createTemplate(gasHtmlRawByName_('panelTriggers'))
     .evaluate()
     .setWidth(900)
     .setHeight(650);
@@ -80,7 +80,7 @@ function obtenerHtml(nombre) {
 }
 
 function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+  return gasHtmlRawByName_(String(filename || '').trim());
 }
 
 function gestorOpciones(opcion) {

@@ -222,7 +222,7 @@ function obtenerDatosGraficaEstadisticas() {
  * Abre un modal con Google Charts (líneas) alimentado por `obtenerDatosGraficaEstadisticas`.
  */
 function mostrarGraficaEstadisticas() {
-  const html = HtmlService.createHtmlOutputFromFile('grafica_estadisticas')
+  const html = HtmlService.createHtmlOutput(getGraficaEstadisticasHtml())
     .setWidth(920)
     .setHeight(720);
   SpreadsheetApp.getUi().showModalDialog(html, 'Evolución semanal (Estadísticas)');
@@ -232,7 +232,7 @@ function mostrarGraficaEstadisticas() {
  * Guía breve en modal (uso de métricas, alertas e interpretación).
  */
 function mostrarManualEstadisticas() {
-  const html = HtmlService.createHtmlOutputFromFile('manual_estadisticas')
+  const html = HtmlService.createHtmlOutput(getManualEstadisticasHtml())
     .setWidth(800)
     .setHeight(700);
   SpreadsheetApp.getUi().showModalDialog(html, 'Guía de estadísticas');
