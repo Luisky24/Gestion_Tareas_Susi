@@ -69,6 +69,13 @@
       (function () {
         try {
           var pagina = <?= JSON.stringify(PAGINA_INICIAL) ?>;
+          console.log('[IDX] pagina=', pagina);
+          console.log('[IDX] json=', JSON.stringify(pagina));
+          console.log('[IDX] len=', pagina.length);
+          console.log(
+            '[IDX] codes=',
+            pagina.split('').map(c => c.charCodeAt(0))
+          );
           // `bundle_app` define `window.cargarPagina`. Si está disponible, cargamos la vista inicial.
           if (typeof window.cargarPagina === 'function') {
             window.cargarPagina(pagina);

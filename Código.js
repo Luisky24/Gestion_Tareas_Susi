@@ -34,16 +34,19 @@ function mostrarBarraLateral() {
 }
 
 function mostrarConfiguracionNotificaciones() {
-  // Abre el sidebar y carga la vista administrativa dentro del contenedor dinámico.
-  const template = HtmlService.createTemplateFromFile('index');
-  template.PAGINA_INICIAL = 'vistaConfiguracionNotificaciones';
-  const html = template.evaluate().setTitle('Menú Gestión Tareas');
-  ui_mostrarSidebar(html);
+  // Compatibilidad: mantener el símbolo público pero abrir como modal (patrón dashboard).
+  mostrarConfiguracionNotificacionesModal();
+}
+
+function mostrarConfiguracionNotificacionesModal() {
+  const html = ui_renderHtml('modalConfiguracionNotificaciones')
+    .setWidth(760)
+    .setHeight(520);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Configuración de notificaciones');
 }
 
 function abrirPanelTriggers() {
-  const html = HtmlService.createTemplate(gasHtmlRawByName_('panelTriggers'))
-    .evaluate()
+  const html = ui_renderHtml('panelTriggers')
     .setWidth(900)
     .setHeight(650);
 
@@ -79,7 +82,28 @@ function cargarPagina(nombreArchivo) {
  * @returns {string} Contenido HTML del archivo.
  */
 function obtenerHtml(nombre) {
-  const n = String(nombre || '').trim();
+  Logger.log('[OBT] nombre raw json=' + JSON.stringify(nombre));
+  Logger.log('[OBT] nombre raw len=' + String(nombre || '').length);
+  Logger.log(
+    '[OBT] nombre raw codes=' +
+      String(nombre || '')
+        .split('')
+        .map((c) => c.charCodeAt(0))
+        .join(',')
+  );
+  let n = String(nombre || '').trim();
+  // Corrección mínima: algunos callers envían el nombre con comillas externas reales.
+  // Ej: "\"vistaConfiguracionNotificaciones\"" → "vistaConfiguracionNotificaciones"
+  if (n.length >= 2 && n.charAt(0) === '"' && n.charAt(n.length - 1) === '"') {
+    const previo = n;
+    n = n.substring(1, n.length - 1);
+    Logger.log('[OBT] nombre contaminado con comillas externas. Antes=' + JSON.stringify(previo) + ' Después=' + JSON.stringify(n));
+  }
+  Logger.log('[OBT] nombre trim json=' + JSON.stringify(n));
+  Logger.log('[OBT] nombre trim len=' + n.length);
+  Logger.log(
+    '[OBT] nombre trim codes=' + n.split('').map((c) => c.charCodeAt(0)).join(',')
+  );
   if (!n) {
     throw new Error('obtenerHtml(nombre): nombre es obligatorio.');
   }
@@ -90,18 +114,8 @@ function obtenerHtml(nombre) {
 function include(filename) {
   const k = String(filename || '').trim();
   if (!k) return '';
-  /**
-   * Patrón oficial de vistas:
-   * - Preferir HTML embebido (bundle) vía `gasHtmlRawByName_`.
-   * - Soportar también archivos `.html` reales para permitir añadir nuevas vistas (HTML + *_script.html)
-   *   sin modificar el bundle existente.
-   */
-  try {
-    return gasHtmlRawByName_(k);
-  } catch (e) {
-    // Fallback: archivos HTML reales del proyecto.
-    return HtmlService.createHtmlOutputFromFile(k).getContent();
-  }
+  // Robusto en despliegues parciales: bundle si existe, si no archivo físico.
+  return ui_htmlRawByName_(k);
 }
 
 function gestorOpciones(opcion) {

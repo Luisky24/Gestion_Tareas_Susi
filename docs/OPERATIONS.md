@@ -18,9 +18,11 @@
 
 ### Comandos operativos (reproducibles)
 
-> El repo no incluye scripts automatizados; las operaciones de `clasp` se asumen manuales.
-> SUPOSICIÓN: el usuario tiene `@google/clasp` instalado globalmente o en PATH.
-> Verificación: ejecutar `clasp -v` en el entorno local.
+Notas:
+
+- El repo incluye scripts npm de **hardening mínimo** para reducir errores operativos (ver `package.json` en la raíz).
+- SUPOSICIÓN: el usuario tiene `@google/clasp` instalado globalmente o en PATH.
+- Verificación: ejecutar `clasp -v` en el entorno local.
 
 - **Login**:
 
@@ -43,6 +45,23 @@ clasp push
 Notas (hardening mínimo):
 - Para **DES** (fuentes sueltas), preferir `npm run deploy:des` desde la raíz del repo: fija el `cwd` correcto (`Gestion_Tareas_Susi/`).
 - Para **PRO** (bundle), el bundling usa `scripts/build-gas-bundle.js` y aplica un coverage check: si hay `.gs/.js` nuevos no incluidos en `FILE_ORDER`, el build falla.
+
+## UI / HtmlService (reglas operativas para evitar divergencias DES/PRO)
+
+Este proyecto soporta:
+
+- **DES**: fuentes sueltas desplegadas con `clasp push` desde `Gestion_Tareas_Susi/`.
+- **PRO/BUNDLE**: despliegue de `dist/app.bundle.gs` donde el HTML está embebido y se resuelve por `gasHtmlRawByName_`.
+
+Regla operativa: cualquier renderizado de HTML debe usar los wrappers core:
+
+- `ui_renderHtml(nombre)` para producir `HtmlOutput` (sidebar/modales) con `Template.evaluate()`.
+- `ui_htmlRawByName_(nombre)` para resolver HTML raw (usado por `include(...)`).
+
+Motivo: evitar:
+
+- `Exception: No se ha encontrado el archivo HTML denominado ...` (PRO/BUNDLE cuando se usa `*FromFile` fuera del wrapper).
+- `<?!= include('...') ?>` impreso como texto (cuando no se evalúa como template).
 
 ## Versionado / Runtime
 
@@ -97,7 +116,13 @@ Listado recomendado (operativo, sin depender de helpers):
 - **Menú aparece al abrir la hoja**: “Lista Tareas” con item “Mostrar Barar Lateral”.
   - EVIDENCIA: `Código.js` → `onOpen()` → `SpreadsheetApp.getUi().createMenu('Lista Tareas').addItem('Mostrar Barar Lateral','mostrarBarraLateral')`.
 - **Sidebar renderiza** `index.html`.
-  - EVIDENCIA: `Código.js` → `mostrarBarraLateral()` → `createHtmlOutputFromFile('index')`.
+  - EVIDENCIA: `Código.js` → `mostrarBarraLateral()` → `ui_renderHtml('index')`.
+  - Nota: esto es crítico para compatibilidad DES/PRO (ver `docs/ARCHITECTURE.md`).
+
+- **Paneles administrativos** (modales) se abren como ventana flotante:
+  - “Ver dashboard de estadísticas” → modal.
+  - “Gestión de Triggers” → modal.
+  - “Configuración notificaciones” → modal.
 
 ### Hojas requeridas
 

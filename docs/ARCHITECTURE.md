@@ -5,8 +5,25 @@
 Este proyecto es un Google Apps Script asociado a una hoja de cálculo (Spreadsheet) y con UI de barra lateral (HTML) que invoca funciones del servidor (Apps Script) para gestionar tareas y ejecutar estadísticas.
 
 - EVIDENCIA: `appsscript.json` → `webapp.executeAs/access` → `executeAs: USER_DEPLOYING` y `access: MYSELF` (webapp restringida al propietario del despliegue).
-- EVIDENCIA: `Código.js` → `mostrarBarraLateral()` → `HtmlService.createHtmlOutputFromFile('index')` + `SpreadsheetApp.getUi().showSidebar(...)`.
+- EVIDENCIA: `Código.js` → `mostrarBarraLateral()` → `ui_renderHtml('index')` + `SpreadsheetApp.getUi().showSidebar(...)` (render robusto DES/PRO).
 - EVIDENCIA: `index.html` → `startAction(opcion)` → `google.script.run...gestorOpciones(opcion)` (contrato cliente→servidor).
+
+## Arquitectura UI actual (Sidebar vs Modales)
+
+El proyecto usa **dos patrones UI** que deben permanecer diferenciados:
+
+1) **Sidebar (navegación operativa diaria)**
+- Renderiza `index.html`.
+- Dentro del sidebar existe navegación de “paneles” mediante carga dinámica (`obtenerHtml(nombre)` → inyección en `#contenedor`).
+- Es el patrón correcto para operaciones de tareas (opciones 1..6).
+
+2) **Modales HtmlService (paneles administrativos / dashboards)**
+- Se abren como ventana flotante sobre Google Sheets mediante `SpreadsheetApp.getUi().showModalDialog(...)`.
+- Patrón usado por:
+  - **Dashboard estadísticas** (modal).
+  - **Gestión de Triggers** (`panelTriggers`) (modal).
+  - **Configuración de notificaciones** (`modalConfiguracionNotificaciones`) (modal).
+- Objetivo: evitar incrustar pantallas administrativas dentro del sidebar y mantener consistencia visual/arquitectónica.
 
 ## Capas (lógicas) del sistema
 
@@ -108,7 +125,7 @@ EVIDENCIA por archivo (ejemplos auditables):
 - EVIDENCIA: `Código.js` → `onOpen()` → `SpreadsheetApp.getUi().createMenu(...)`.
 
 2) Usuario abre la barra lateral → `mostrarBarraLateral()` renderiza `index.html`.
-- EVIDENCIA: `Código.js` → `mostrarBarraLateral()` → `HtmlService.createHtmlOutputFromFile('index')`.
+- EVIDENCIA: `Código.js` → `mostrarBarraLateral()` → `ui_renderHtml('index')`.
 
 3) Usuario pulsa un botón (1..6) → `index.html` llama a `gestorOpciones(opcion)`.
 - EVIDENCIA: `index.html` → `startAction(opcion)` → `.gestorOpciones(opcion)`.
@@ -141,7 +158,84 @@ Detalles técnicos por flujo y columnas implicadas: ver `docs/FLOWS.md` y `docs/
 
 Nota (UI dinámica y bundle):
 - El sidebar carga paneles dinámicos mediante `obtenerHtml(nombre)` y ejecuta scripts embebidos en el HTML inyectado.
-- El proyecto soporta HTML embebido vía bundle (`gasHtmlRawByName_`) y, en vistas nuevas, fallback a archivos `.html` reales para mantener separación HTML/JS sin obligar a regenerar bundle en cada cambio.
+- El proyecto soporta:
+  - **PRO/BUNDLE**: HTML embebido en el bundle y resuelto por `gasHtmlRawByName_(nombre)` (generado por el builder).
+  - **DES (fuentes sueltas / despliegue parcial)**: HTML físico `.html` en `Gestion_Tareas_Susi/`.
+
+## Renderizado HTML “oficial” del proyecto (contrato DES vs PRO/BUNDLE)
+
+### Problema que resuelve
+
+En modo **BUNDLE**, `HtmlService.createHtmlOutputFromFile(...)` / `createTemplateFromFile(...)` fallan porque los `.html` no existen como archivos “sueltos” en runtime (están embebidos en `dist/app.bundle.gs`). Esto fue la causa del error operativo:
+
+- `Exception: No se ha encontrado el archivo HTML denominado index.`
+
+Además, si se entrega HTML como “texto” (p.ej. `getContent()` sin evaluar template), los includes aparecen impresos literal:
+
+- `<?!= include('...') ?>`
+
+### Wrappers core (obligatorios)
+
+Estos helpers son el **punto único** para evitar divergencias DES/PRO:
+
+- **`ui_htmlRawByName_(nombreArchivo)`** (`uiRepository.gs`)
+  - **Qué hace**: devuelve el HTML raw (string) resolviendo:
+    - **PRO/BUNDLE**: `gasHtmlRawByName_(nombre)` (HTML embebido).
+    - **DES**: `HtmlService.createHtmlOutputFromFile(nombre).getContent()` (archivo físico).
+  - **Uso recomendado**: dentro de `include(filename)` o cuando se necesite el contenido raw.
+
+- **`ui_renderHtml(nombreArchivo)`** (`uiRepository.gs`)
+  - **Qué hace**: devuelve `HtmlOutput` evaluando como **Template** para que se procesen `<?= ?>` / `<?!= include(...) ?>`:
+    - **PRO/BUNDLE**: `HtmlService.createTemplate(gasHtmlRawByName_(nombre)).evaluate()`
+    - **DES**: `HtmlService.createTemplateFromFile(nombre).evaluate()`
+  - **Uso recomendado**: cualquier `showSidebar(...)` o `showModalDialog(...)`.
+
+### Reglas arquitectónicas obligatorias (anti‑regresión)
+
+- **NO** usar `gasHtmlRawByName_` directamente en módulos funcionales.
+  - Motivo: acopla el código a BUNDLE y rompe DES/diagnóstico.
+- **NO** usar `HtmlService.createHtmlOutputFromFile(...)` para vistas/paneles del proyecto (excepto dentro de wrappers como fallback DES).
+  - Motivo: rompe en BUNDLE.
+- **NO** renderizar paneles con `HtmlService.createHtmlOutput(htmlString)` cuando existan includes/templating.
+  - Motivo: los `<?!= ... ?>` se imprimen literal si no pasan por `Template.evaluate()`.
+- **SÍ** usar:
+  - Sidebar/modal: `ui_renderHtml('nombreHtml')`.
+  - Includes: `include('vista_script')` → `ui_htmlRawByName_('vista_script')`.
+
+## Cambio relevante: “Configuración notificaciones” (antes sidebar → ahora modal)
+
+### Antes (patrón que causaba fricción)
+
+- La vista se cargaba dentro del sidebar (vía `PAGINA_INICIAL` y/o inyección en `#contenedor`).
+- Efecto: quedaba “incrustada” en el menú lateral, mezclando UI operativa con UI administrativa.
+
+### Ahora (patrón oficial)
+
+- `mostrarConfiguracionNotificacionesModal()` abre `modalConfiguracionNotificaciones.html` mediante `showModalDialog`.
+- El modal incluye la vista y su script separado (`vistaConfiguracionNotificaciones.html` + `vistaConfiguracionNotificaciones_script.html`).
+- Beneficios:
+  - coherencia con dashboard/panelTriggers,
+  - desacoplamiento del sidebar,
+  - menos dependencia de CSS/DOM del sidebar,
+  - reduce riesgos de regresión en navegación dinámica.
+
+## Riesgos típicos y anti‑patrones (lecciones aprendidas)
+
+1) **Includes impresos como literal**
+- Síntoma: aparece `<?!= include('x') ?>` como texto.
+- Causa: HTML entregado sin `Template.evaluate()`.
+- Mitigación: renderizar con `ui_renderHtml(...)` (siempre).
+
+2) **Divergencia DES/PRO por llamadas directas a HtmlService *FromFile**
+- Síntoma: `No se ha encontrado el archivo HTML denominado ...` en PRO/BUNDLE.
+- Causa: `createHtmlOutputFromFile` / `createTemplateFromFile` usado fuera del wrapper.
+- Mitigación: wrappers core + mantener el contrato de uso.
+
+3) **Dependencias bundle‑only ocultas**
+- Síntoma: funciona en PRO pero falla en DES (o al revés).
+- Causa: uso directo de `gasHtmlRawByName_` o suposiciones de bundle.
+- Mitigación: `ui_htmlRawByName_`/`ui_renderHtml` como punto único.
+
 
 ## Riesgos operativos (documentados, NO corregidos)
 
