@@ -1,0 +1,111 @@
+<!--
+  vistaConfiguracionNotificaciones_script.html
+  Script cliente de la vista de configuración de notificaciones.
+  Se incluye desde `vistaConfiguracionNotificaciones.html` mediante:
+    <?!= include('vistaConfiguracionNotificaciones_script'); ?>
+-->
+<script>
+  (function () {
+    // Evitar doble inicialización si el contenedor reinyecta HTML.
+    var root = document.currentScript && document.currentScript.parentElement;
+    var key = 'vistaConfiguracionNotificacionesInit';
+    if (root && root.dataset && root.dataset[key] === 'true') return;
+    if (root && root.dataset) root.dataset[key] = 'true';
+
+    function $(id) {
+      return document.getElementById(id);
+    }
+
+    function setLoading(isLoading, texto) {
+      var el = $('loadingConfigNotif');
+      var btn = $('btnGuardarConfigNotif');
+      if (el) {
+        el.style.display = isLoading ? '' : 'none';
+        if (texto) el.textContent = texto;
+      }
+      if (btn) btn.disabled = !!isLoading;
+    }
+
+    function setMensaje(tipo, texto) {
+      var el = $('mensajeConfigNotif');
+      if (!el) return;
+      if (!texto) {
+        el.className = 'alert d-none';
+        el.textContent = '';
+        return;
+      }
+      el.className = 'alert alert-' + (tipo || 'info');
+      el.textContent = texto;
+    }
+
+    function emailValidoBasico(email) {
+      var s = String(email || '').trim();
+      if (!s) return false;
+      return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s);
+    }
+
+    function cargarConfiguracionNotificaciones() {
+      setMensaje('', '');
+      setLoading(true, 'Cargando…');
+      google.script.run
+        .withSuccessHandler(function (cfg) {
+          try {
+            var email = cfg && cfg.emailNotificaciones ? String(cfg.emailNotificaciones).trim() : '';
+            var input = $('emailNotificaciones');
+            if (input) input.value = email || '';
+            var estado = $('estadoActualEmail');
+            if (estado) {
+              estado.textContent = email
+                ? 'Estado actual: configurado (' + email + ')'
+                : 'Estado actual: sin configurar';
+            }
+          } catch (e) {
+            setMensaje('danger', 'No se pudo interpretar la configuración recibida.');
+          } finally {
+            setLoading(false);
+          }
+        })
+        .withFailureHandler(function (err) {
+          setLoading(false);
+          setMensaje('danger', err && err.message ? err.message : 'No se pudo cargar la configuración.');
+        })
+        .obtenerConfiguracionNotificaciones();
+    }
+
+    function guardarConfiguracionNotificaciones() {
+      setMensaje('', '');
+      var input = $('emailNotificaciones');
+      var email = input ? String(input.value || '').trim() : '';
+
+      if (!email) {
+        setMensaje('warning', 'Introduce un email para guardar la configuración.');
+        return;
+      }
+      if (!emailValidoBasico(email)) {
+        setMensaje('danger', 'Formato de email inválido.');
+        return;
+      }
+
+      setLoading(true, 'Guardando…');
+      google.script.run
+        .withSuccessHandler(function (res) {
+          setLoading(false);
+          var ok = !!(res && res.ok);
+          var msg = res && res.mensaje ? String(res.mensaje) : ok ? 'Guardado.' : 'No se pudo guardar.';
+          setMensaje(ok ? 'success' : 'danger', msg);
+          if (ok) cargarConfiguracionNotificaciones();
+        })
+        .withFailureHandler(function (err) {
+          setLoading(false);
+          setMensaje('danger', err && err.message ? err.message : 'Error al guardar la configuración.');
+        })
+        .guardarConfiguracionNotificaciones(email);
+    }
+
+    var btn = $('btnGuardarConfigNotif');
+    if (btn) btn.addEventListener('click', guardarConfiguracionNotificaciones);
+
+    cargarConfiguracionNotificaciones();
+  })();
+</script>
+

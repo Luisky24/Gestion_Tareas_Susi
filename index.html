@@ -63,6 +63,28 @@
   <div id="contenedor" style="flex: 1; margin-left: 20px;"></div>
 
   <?!= include('bundle_app'); ?>
+
+  <? if (typeof PAGINA_INICIAL !== 'undefined' && PAGINA_INICIAL) { ?>
+    <script>
+      (function () {
+        try {
+          var pagina = <?= JSON.stringify(PAGINA_INICIAL) ?>;
+          // `bundle_app` define `window.cargarPagina`. Si está disponible, cargamos la vista inicial.
+          if (typeof window.cargarPagina === 'function') {
+            window.cargarPagina(pagina);
+          } else {
+            // Fallback defensivo: reintentar tras un tick.
+            setTimeout(function () {
+              if (typeof window.cargarPagina === 'function') window.cargarPagina(pagina);
+            }, 0);
+          }
+        } catch (e) {
+          // No interrumpir la navegación del sidebar por un fallo al cargar la vista inicial.
+          console.error('No se pudo cargar la página inicial del sidebar:', e);
+        }
+      })();
+    </script>
+  <? } ?>
 </body>
 
 </html>

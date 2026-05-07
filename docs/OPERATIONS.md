@@ -40,6 +40,10 @@ clasp pull
 clasp push
 ```
 
+Notas (hardening mínimo):
+- Para **DES** (fuentes sueltas), preferir `npm run deploy:des` desde la raíz del repo: fija el `cwd` correcto (`Gestion_Tareas_Susi/`).
+- Para **PRO** (bundle), el bundling usa `scripts/build-gas-bundle.js` y aplica un coverage check: si hay `.gs/.js` nuevos no incluidos en `FILE_ORDER`, el build falla.
+
 ## Versionado / Runtime
 
 - **Runtime**: V8.
@@ -57,21 +61,34 @@ El repo define un trigger time-based que ejecuta el batch de estadísticas y not
 
 - **Handler**: `triggerCalculoEstadisticas`
   - EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → función definida.
-- **Creación y deduplicación**: `crearTriggerCalculoEstadisticas()` borra triggers previos con el mismo handler antes de crear uno nuevo.
-  - EVIDENCIA: `f_planificador.js` → `crearTriggerCalculoEstadisticas()` → `ScriptApp.getProjectTriggers()` + `if (trigger.getHandlerFunction() === 'triggerCalculoEstadisticas') ScriptApp.deleteTrigger(trigger)`.
-- **Programación**: se configura para `FRIDAY` a las `13` y `nearMinute(10)`.
-  - EVIDENCIA: `f_planificador.js` → `crearTriggerCalculoEstadisticas()` → `.onWeekDay(ScriptApp.WeekDay.FRIDAY).atHour(13).nearMinute(10)`.
+- **Creación / deduplicación / programación**: se gestiona en el módulo de triggers (config centralizada + recreación).
+  - **Backend**:
+    - EVIDENCIA: `f_triggers.gs` → `crearTriggerCalculoEstadisticas()` → `eliminarTriggers(config.nombre)` + `crearTriggerDesdeConfig(config)`.
+    - EVIDENCIA: `f_triggers.gs` → `crearTriggerDesdeConfig(config)` → `.onWeekDay(...).atHour(...).nearMinute(...)`.
+  - **Configuración persistida**:
+    - EVIDENCIA: `f_triggers.gs` → `TRIGGERS_CONFIG_PROPERTY_KEY = 'TRIGGERS_CONFIG'` + `guardarConfigTriggers()` / `obtenerConfigTriggers()`.
+  - **API (UI → backend)**:
+    - EVIDENCIA: `f_triggers_api.gs` → `apiObtenerTriggers()` / `apiGuardarTriggers(config)` / `apiRecrearTriggers()` / `apiInicializarTriggersConfig()`.
+  - **UI de administración**:
+    - EVIDENCIA: `panelTriggers.html` + `panelTriggers_script.html` (modal) → llama a `apiObtenerTriggers/apiGuardarTriggers/apiRecrearTriggers`.
+
+Nota (separación handler/orquestación):
+- `triggerCalculoEstadisticas()` es un **handler ligero** (wrapper `try/catch`) que delega el cálculo.
+  - EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `ejecutarCalculoEstadisticas()` + `notificarExito()` / `notificarError(error)`.
+- La **orquestación principal** del sistema de estadísticas vive en:
+  - EVIDENCIA: `f_planificador_service.gs` → `ejecutarEstadisticasDelSistema()` (entrypoint de orquestación) → flujo + analítico + toast + alertas proactivas.
 
 SUPOSICIÓN (nomenclatura comentario vs código):
 - El comentario indica “cada lunes a las 03:00”, pero el código crea viernes 13:10 aprox.
-- Verificación: abrir `f_planificador.js` y contrastar comentario `// Crear nuevo trigger...` con la cadena `onWeekDay(...).atHour(...).nearMinute(...)`.
+- Verificación: abrir `f_triggers.gs` y contrastar la configuración guardada (`TRIGGERS_CONFIG` / ScriptProperty `TRIGGERS_CONFIG`) con la cadena `onWeekDay(...).atHour(...).nearMinute(...)`.
 - Riesgo operativo: documentación interna (comentario) no coincide con el comportamiento real.
-  - EVIDENCIA: `f_planificador.js` → `crearTriggerCalculoEstadisticas()` → comentario “lunes 03:00” y código FRIDAY/13/nearMinute(10).
+  - EVIDENCIA: `f_triggers.gs` → configuración por defecto `TRIGGERS_CONFIG` → `diaSemana: 'FRIDAY', hora: 13, minuto: 10`.
 
 ### Listado de triggers activos
 
-El repo incluye utilidad para listar triggers en `Logger`.
-- EVIDENCIA: `f_planificador.js` → `listarTriggersActivosLogger()` → `ScriptApp.getProjectTriggers()` + `Logger.log(...)`.
+Listado recomendado (operativo, sin depender de helpers):
+- En Apps Script UI → **Triggers**: verificar existencia del handler `triggerCalculoEstadisticas`.
+- Alternativa: recrear desde la UI `panelTriggers` (acción “Recrear triggers”) si existe configuración guardada.
 
 ## Checklist de validación operativa (sin tocar código)
 

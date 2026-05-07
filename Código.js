@@ -33,6 +33,14 @@ function mostrarBarraLateral() {
   APP.LOG.log("");
 }
 
+function mostrarConfiguracionNotificaciones() {
+  // Abre el sidebar y carga la vista administrativa dentro del contenedor dinámico.
+  const template = HtmlService.createTemplateFromFile('index');
+  template.PAGINA_INICIAL = 'vistaConfiguracionNotificaciones';
+  const html = template.evaluate().setTitle('Menú Gestión Tareas');
+  ui_mostrarSidebar(html);
+}
+
 function abrirPanelTriggers() {
   const html = HtmlService.createTemplate(gasHtmlRawByName_('panelTriggers'))
     .evaluate()
@@ -80,7 +88,20 @@ function obtenerHtml(nombre) {
 }
 
 function include(filename) {
-  return gasHtmlRawByName_(String(filename || '').trim());
+  const k = String(filename || '').trim();
+  if (!k) return '';
+  /**
+   * Patrón oficial de vistas:
+   * - Preferir HTML embebido (bundle) vía `gasHtmlRawByName_`.
+   * - Soportar también archivos `.html` reales para permitir añadir nuevas vistas (HTML + *_script.html)
+   *   sin modificar el bundle existente.
+   */
+  try {
+    return gasHtmlRawByName_(k);
+  } catch (e) {
+    // Fallback: archivos HTML reales del proyecto.
+    return HtmlService.createHtmlOutputFromFile(k).getContent();
+  }
 }
 
 function gestorOpciones(opcion) {

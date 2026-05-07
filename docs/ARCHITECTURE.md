@@ -31,9 +31,12 @@ flowchart TB
   end
 
   subgraph BatchStats["Batch/Planificador (triggers y estadísticas)"]
-    TRG["f_planificador.js<br/>triggerCalculoEstadisticas() / crearTriggerCalculoEstadisticas()"]
-    EV2["f_estadisticas_flujo.js<br/>estadisticasV2()"]
-    ESEM["f_estadisticas_analitico.js<br/>ejecutarEstadisticasAnaliticas()"]
+    TRH["f_planificador.js<br/>triggerCalculoEstadisticas() (handler)"]
+    TRC["f_triggers.gs<br/>config + creación/deduplicación"]
+    SVC["f_planificador_service.gs<br/>ejecutarEstadisticasDelSistema() (orquestador)"]
+    EV2["f_estadisticas_flujo.js<br/>estadisticasV2() (motor flujo)"]
+    ESEM["f_estadisticas_analitico.js<br/>ejecutarEstadisticasAnaliticas() (motor analítico)"]
+    NTF["f_planificador_notificaciones.gs<br/>obtenerEmailNotificacion() + notificar*() (best-effort)"]
   end
 
   subgraph Data["Datos (Google Sheets)"]
@@ -59,8 +62,11 @@ flowchart TB
   MV --> H_T
   MV --> H_H
 
-  TRG --> EV2
-  TRG --> ESEM
+  TRC --> TRH
+  TRH --> SVC
+  SVC --> EV2
+  SVC --> ESEM
+  TRH --> NTF
   EV2 --> H_E
   EV2 --> H_ERR
   ESEM --> H_RS
@@ -71,7 +77,7 @@ EVIDENCIAS clave de capa:
 - EVIDENCIA: `index.html` → `startAction(opcion)` → `google.script.run...gestorOpciones(opcion)` (UI).
 - EVIDENCIA: `Código.js` → `gestorOpciones(opcion)` → `switch (opcion) { case 1..6 }` (router).
 - EVIDENCIA: `Código.js` → `nuevaTarea()/finalizarTarea()/borrarTarea()/reactivarTarea()/reorganizarTareas()/moverFinalizadas()` → operaciones sobre `SpreadsheetApp`.
-- EVIDENCIA: `f_planificador.js` → `crearTriggerCalculoEstadisticas()` → `ScriptApp.newTrigger('triggerCalculoEstadisticas').timeBased()...create()` (batch).
+- EVIDENCIA: `f_triggers.gs` → `crearTriggerDesdeConfig(config)` → `ScriptApp.newTrigger('triggerCalculoEstadisticas').timeBased()...create()` (batch).
 
 ## Inventario del sistema (archivo → responsabilidades → hojas → APIs)
 
@@ -84,7 +90,12 @@ EVIDENCIAS clave de capa:
 | `f_secundarias.js` | Ordenación (`ordenarTareas`), coloreado pijama/vence (`pijama`), reubicar fila finalizada (`reubicarTareaFinalizada`), util color (`rgbToHex`) | hoja activa (implícito), `Tareas` (vía hoja activa) | `SpreadsheetApp` (implícito por hoja activa) |
 | `f_estadisticas_flujo.js` | Generación hoja `Estadisticas`, lectura datos de `Tareas`/`Hecho`, agregación por semana ISO, hoja de errores dedicada | `Estadisticas`, `Tareas`, `Hecho`, `Errores_Estadisticas` | `SpreadsheetApp` |
 | `f_estadisticas_analitico.js` | Resumen semanal alternativo: crea/borra `Resumen Semanal`, `Errores`; procesa 1..2 hojas de entrada | `Resumen Semanal`, `Errores`, `Tareas`, `Hecho` | `SpreadsheetApp` |
-| `f_planificador.js` | Trigger time-based para ejecutar estadísticas y envío email de estado; util para listar triggers | N/A (indirecto vía funciones llamadas) | `ScriptApp`, `MailApp`, `Logger` |
+| `f_triggers.gs` | Configuración centralizada de triggers (ScriptProperties), validación, creación/deduplicación | N/A | `ScriptApp`, `PropertiesService`, `Logger` |
+| `f_triggers_api.gs` | API backend para UI de triggers (obtener/guardar/recrear/inicializar) | N/A | `PropertiesService` |
+| `panelTriggers.html` + `panelTriggers_script.html` | UI administrativa para gestionar triggers (modal) | N/A | `google.script.run` (cliente HTML) |
+| `f_planificador_service.gs` | Orquestador principal de estadísticas del sistema (`ejecutarEstadisticasDelSistema`) | `Estadisticas`, `Resumen Semanal`, `Errores*` (indirecto) | `SpreadsheetApp` (indirecto vía módulos), `PropertiesService` (indirecto vía dashboard) |
+| `f_planificador_notificaciones.gs` | Notificaciones email (best-effort) basadas en `EMAIL_NOTIFICACION` | N/A | `MailApp`, `PropertiesService`, `Logger` |
+| `f_planificador.js` | Handler del trigger (`triggerCalculoEstadisticas`) como wrapper: delega cálculo y notificación | N/A (indirecto) | `Logger` |
 
 EVIDENCIA por archivo (ejemplos auditables):
 - EVIDENCIA: `Código.js` → `onOpen()` → `SpreadsheetApp.getUi().createMenu('Lista Tareas')...addItem('Mostrar Barar Lateral', 'mostrarBarraLateral')`.
@@ -109,7 +120,8 @@ EVIDENCIA por archivo (ejemplos auditables):
 - EVIDENCIA: `Código.js` → `reorganizarTareas()` → `rngTareas.setValues(tablafinal); pijama();`.
 
 6) Batch (trigger) ejecuta estadísticas y notifica por email.
-- EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `estadisticasV2(); ejecutarEstadisticasAnaliticas(); MailApp.sendEmail(...)`.
+- EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `ejecutarCalculoEstadisticas()` + `notificarExito()`/`notificarError(error)` (best-effort).
+- EVIDENCIA: `f_planificador_service.gs` → `ejecutarEstadisticasDelSistema()` → orquesta flujo + analítico + toast + alertas proactivas.
 
 Detalles técnicos por flujo y columnas implicadas: ver `docs/FLOWS.md` y `docs/DATA_MODEL.md`.
 
@@ -119,8 +131,17 @@ Detalles técnicos por flujo y columnas implicadas: ver `docs/FLOWS.md` y `docs/
   - EVIDENCIA: `index.html` → botones `Nueva Tarea`..`Mover Finalizados` → `startAction(1..6)`.
 - **Orquestación por entero `opcion`**: evita múltiples endpoints; un único punto de entrada.
   - EVIDENCIA: `Código.js` → `gestorOpciones(opcion)` → `switch (opcion)`.
-- **Persistencia exclusiva en Google Sheets**: no hay uso de PropertiesService/Drive/DB en repo.
-  - EVIDENCIA: repo → búsqueda de APIs → solo `SpreadsheetApp`, `HtmlService`, `ScriptApp`, `MailApp`, `Logger`, `Utilities`, `Session`.
+- **Persistencia principal en Google Sheets + configuración operativa en ScriptProperties**:
+  - Triggers: ScriptProperty `TRIGGERS_CONFIG` (configuración centralizada).
+  - Notificaciones: ScriptProperty `EMAIL_NOTIFICACION` (destinatario email; modo best-effort).
+  - Dashboard: ScriptProperties para anti-spam/toast (p.ej. `ULTIMA_ALERTA_FECHA`, `ULTIMO_TOAST`).
+  - EVIDENCIA: `f_triggers.gs` → `PropertiesService.getScriptProperties().setProperty('TRIGGERS_CONFIG', ...)`.
+  - EVIDENCIA: `f_planificador_notificaciones.gs` → `PropertiesService.getScriptProperties().getProperty('EMAIL_NOTIFICACION')`.
+  - EVIDENCIA: `f_estadisticas_dashboard.js` → ScriptProperties `ULTIMA_ALERTA_FECHA` / `ULTIMO_TOAST`.
+
+Nota (UI dinámica y bundle):
+- El sidebar carga paneles dinámicos mediante `obtenerHtml(nombre)` y ejecuta scripts embebidos en el HTML inyectado.
+- El proyecto soporta HTML embebido vía bundle (`gasHtmlRawByName_`) y, en vistas nuevas, fallback a archivos `.html` reales para mantener separación HTML/JS sin obligar a regenerar bundle en cada cambio.
 
 ## Riesgos operativos (documentados, NO corregidos)
 
@@ -138,8 +159,8 @@ Detalles técnicos por flujo y columnas implicadas: ver `docs/FLOWS.md` y `docs/
 4) **Dependencia fuerte de tipos `Date` en celdas** en `moverFinalizadas`: usa `.getTime()` sobre `elemenIn[6]` y `elemenIn[0]`; si la hoja contiene strings (p.ej. importación o formato), fallará.
 - EVIDENCIA: `Código.js` → `moverFinalizadas()` → `claveIn = \`${elemenIn[6].getTime()}|${elemenIn[1]}|${elemenIn[0].getTime()}\``.
 
-5) **Hardcode de destinatario email** en trigger: riesgo de exfiltración/ruido operativo si se reutiliza el script.
-- EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `const destinatario = "luiskycv24@gmail.com";`.
+5) **Notificaciones best-effort (dependen de configuración)**: si `EMAIL_NOTIFICACION` no está configurado, no se envía email (modo resiliente) y se registran warnings/logs.
+- EVIDENCIA: `f_planificador_notificaciones.gs` → `obtenerEmailNotificacion()` devuelve `null` si no hay property; `notificar*()` registra warnings y no rompe ejecución.
 
 Riesgos y mitigaciones operativas (sin cambiar código): ver `docs/SECURITY.md` y `docs/TROUBLESHOOTING.md`.
 

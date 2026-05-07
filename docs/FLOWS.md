@@ -315,34 +315,40 @@ flowchart TD
 
 ## Flujo batch — Trigger de estadísticas
 
-**Objetivo**: ejecución programada que recalcula estadísticas y envía email de éxito/error.
+**Objetivo**: ejecución programada que recalcula estadísticas y, de forma best-effort, intenta enviar email de éxito/error.
 
 **Secuencia**:
 1) Un trigger time-based ejecuta `triggerCalculoEstadisticas()`.
-   - EVIDENCIA: `f_planificador.js` → `crearTriggerCalculoEstadisticas()` → `newTrigger('triggerCalculoEstadisticas').timeBased()...create()`.
-2) `triggerCalculoEstadisticas` ejecuta `estadisticasV2()` y luego `ejecutarEstadisticasAnaliticas()`.
-   - EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `estadisticasV2(); ejecutarEstadisticasAnaliticas();`.
-3) Envía email con resultado.
-   - EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `MailApp.sendEmail(destinatario, asunto, cuerpo)`.
+   - EVIDENCIA: `f_triggers.gs` → `crearTriggerCalculoEstadisticas()` / `crearTriggerDesdeConfig(config)` → `newTrigger('triggerCalculoEstadisticas').timeBased()...create()`.
+2) `triggerCalculoEstadisticas` actúa como **handler ligero (wrapper)**:
+   - ejecuta el cálculo global (`ejecutarCalculoEstadisticas()`), y
+   - notifica éxito/error (best-effort) sin romper el batch si falla el envío.
+   - EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → `ejecutarCalculoEstadisticas(); notificarExito();` / `catch` → `notificarError(error)`.
+3) El cálculo real se orquesta desde el **orquestador principal**:
+   - EVIDENCIA: `f_planificador_service.gs` → `ejecutarEstadisticasDelSistema()` (flujo + analítico + toast + alertas proactivas).
+4) Envío de email (best-effort):
+   - **Destino**: ScriptProperty `EMAIL_NOTIFICACION` vía `obtenerEmailNotificacion()`.
+   - Si no existe `EMAIL_NOTIFICACION`: **no rompe**, **no envía**, registra warnings/logs.
+   - EVIDENCIA: `f_planificador_notificaciones.gs` → `obtenerEmailNotificacion()` + `notificarExito()` / `notificarError(error)` (con `Logger.log("[WARN] ...")` y `try/catch` en `MailApp.sendEmail`).
 
 ```mermaid
 sequenceDiagram
   participant Tr as Trigger time-based
   participant Pl as f_planificador.js
-  participant V2 as f_estadisticas_flujo.js
-  participant Sem as f_estadisticas_analitico.js
+  participant Svc as f_planificador_service.gs
   participant Mail as MailApp
-  Tr->>Pl: triggerCalculoEstadisticas()
+  Tr->>Pl: triggerCalculoEstadisticas() (handler)
   alt ejecución correcta
-    Pl->>V2: estadisticasV2()
-    Pl->>Sem: ejecutarEstadisticasAnaliticas()
-    Pl->>Mail: sendEmail(Éxito)
+    Pl->>Svc: ejecutarCalculoEstadisticas() / ejecutarEstadisticasDelSistema()
+    Pl->>Mail: sendEmail(Éxito) [best-effort]
   else error
-    Pl->>Mail: sendEmail(Error + stack)
+    Pl->>Mail: sendEmail(Error + stack) [best-effort]
   end
 ```
 
 **Errores**:
-- El email siempre se envía (salvo fallo en `MailApp`) con asunto de éxito/error.
-  - EVIDENCIA: `f_planificador.js` → `triggerCalculoEstadisticas()` → bloque `try/catch` y `MailApp.sendEmail(...)`.
+- El email **no está garantizado**:
+  - Si falta `EMAIL_NOTIFICACION`, no se envía (modo resiliente).
+  - Si `MailApp.sendEmail` falla, se captura y se registra warning/log.
+  - EVIDENCIA: `f_planificador_notificaciones.gs` → `notificarExito()` / `notificarError(error)` → `if (!destinatario) Logger.log("[WARN] ..."); return;` + `try/catch`.
 
